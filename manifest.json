@@ -1,0 +1,40 @@
+{
+  "manifest_version": 3,
+  "name": "Job Red Flag Detector",
+  "description": "Instantly spot warning signs in job postings — vague salary, unrealistic requirements, toxic culture signals.",
+  "version": "1.0.0",
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "action": {
+    "default_popup": "src/popup.html",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "48": "icons/icon48.png"
+    }
+  },
+  "permissions": [
+    "activeTab"
+  ],
+  "content_scripts": [
+    {
+      "matches": [
+        "*://*.linkedin.com/jobs/*",
+        "*://*.indeed.com/*",
+        "*://*.glassdoor.com/*",
+        "*://*.glassdoor.nl/*",
+        "*://*.werkenbij*.nl/*",
+        "*://*.nationalevacaturebank.nl/*",
+        "*://*.monster.com/*",
+        "*://*.monster.nl/*",
+        "*://*.reed.co.uk/*",
+        "*://*.seek.com.au/*",
+        "*://*.stepstone.*/*"
+      ],
+      "js": ["src/content.js"],
+      "css": ["src/content.css"]
+    }
+  ]
+}

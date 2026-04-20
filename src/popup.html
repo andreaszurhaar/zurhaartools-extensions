@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" href="popup.css">
+  <title>Job Red Flag Detector</title>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>Job Red Flag Detector</h1>
+      <p class="subtitle">by <a href="https://zurhaartools.com" target="_blank">Zurhaar Tools</a></p>
+    </header>
+
+    <!-- Initial state -->
+    <div id="state-initial" class="state">
+      <p class="description">Click the button below to analyze the current job posting for red flags.</p>
+      <button id="scan-btn" class="btn-primary">
+        <span class="btn-icon">&#128269;</span>
+        Scan This Job Posting
+      </button>
+      <p class="hint">Works on LinkedIn, Indeed, Glassdoor, and more.</p>
+    </div>
+
+    <!-- Loading state -->
+    <div id="state-loading" class="state hidden">
+      <div class="loader"></div>
+      <p>Analyzing job posting...</p>
+    </div>
+
+    <!-- Results state -->
+    <div id="state-results" class="state hidden">
+      <!-- Score -->
+      <div id="score-container" class="score-container">
+        <div id="score-badge" class="score-badge"></div>
+        <p id="score-summary" class="score-summary"></p>
+      </div>
+
+      <!-- Red flags -->
+      <div id="red-flags-section" class="section">
+        <h2 class="section-title red">&#9888; Red Flags</h2>
+        <div id="red-flags-list" class="flags-list"></div>
+      </div>
+
+      <!-- Green flags -->
+      <div id="green-flags-section" class="section">
+        <h2 class="section-title green">&#10003; Green Flags</h2>
+        <div id="green-flags-list" class="flags-list"></div>
+      </div>
+
+      <button id="rescan-btn" class="btn-secondary">Scan Again</button>
+    </div>
+
+    <!-- Error state -->
+    <div id="state-error" class="state hidden">
+      <p class="error-icon">&#9888;</p>
+      <p id="error-message" class="error-message">Something went wrong.</p>
+      <button id="retry-btn" class="btn-secondary">Try Again</button>
+    </div>
+
+    <!-- No job posting found -->
+    <div id="state-no-job" class="state hidden">
+      <p class="error-icon">&#128196;</p>
+      <p class="error-message">No job posting detected on this page.</p>
+      <p class="hint">Navigate to a job listing on LinkedIn, Indeed, Glassdoor, or similar sites.</p>
+    </div>
+  </div>
+
+  <script src="config.js"></script>
+  <script src="popup.js"></script>
+</body>
+</html>
