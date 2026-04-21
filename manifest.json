@@ -25,13 +25,13 @@
         "*://*.indeed.com/*",
         "*://*.glassdoor.com/*",
         "*://*.glassdoor.nl/*",
-        "*://*.werkenbij*.nl/*",
         "*://*.nationalevacaturebank.nl/*",
         "*://*.monster.com/*",
         "*://*.monster.nl/*",
         "*://*.reed.co.uk/*",
         "*://*.seek.com.au/*",
-        "*://*.stepstone.*/*"
+        "*://*.stepstone.de/*",
+        "*://*.stepstone.nl/*"
       ],
       "js": ["src/content.js"],
       "css": ["src/content.css"]
