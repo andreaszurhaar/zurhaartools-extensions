@@ -77,17 +77,31 @@ async function extractJobText() {
       const isLinkedIn = window.location.hostname.includes('linkedin.com');
 
       if (isLinkedIn) {
-        // Strategy 1: Job detail panel selectors (LinkedIn changes these frequently)
+        // Strategy 1: Find "About the job" heading and grab its parent container
+        const allHeaders = document.querySelectorAll('h2, h3, h4, span, div');
+        for (const header of allHeaders) {
+          const headerText = header.innerText.trim().toLowerCase();
+          if (headerText === 'about the job' || headerText === 'over de functie') {
+            // Walk up to find the container with the full description
+            let container = header.parentElement;
+            for (let i = 0; i < 5; i++) {
+              if (container && container.innerText.trim().length > 300) {
+                return container.innerText.trim();
+              }
+              container = container?.parentElement;
+            }
+          }
+        }
+
+        // Strategy 2: Known LinkedIn selectors (they change often)
         const linkedInSelectors = [
+          '#job-details',
           '.jobs-description__content',
           '.jobs-box__html-content',
           '.jobs-description-content__text',
-          '.jobs-unified-top-card__job-insight',
-          '#job-details',
-          '.job-view-layout',
-          // The job description is usually inside a div with these attributes
           '[class*="jobs-description"]',
           '[class*="job-details"]',
+          '.job-view-layout',
         ];
 
         for (const selector of linkedInSelectors) {
@@ -97,35 +111,39 @@ async function extractJobText() {
           }
         }
 
-        // Strategy 2: Find the "About the job" section and grab everything after it
-        const allText = document.body.innerText;
-        const aboutIndex = allText.indexOf('About the job');
-        if (aboutIndex !== -1) {
-          // Grab text from "About the job" onwards, limited to ~10K chars
-          const jobSection = allText.substring(aboutIndex, aboutIndex + 10000);
-          if (jobSection.length > 100) {
-            return jobSection;
-          }
-        }
-
-        // Strategy 3: Look for the right-side detail panel
-        const rightPanel = document.querySelector('.jobs-search__job-details, .job-view-layout .jobs-details');
-        if (rightPanel && rightPanel.innerText.trim().length > 200) {
-          return rightPanel.innerText.trim();
-        }
-
-        // Strategy 4: Get the main content area, filtering out the sidebar job list
-        const mainContent = document.querySelector('main');
-        if (mainContent) {
-          // Try to exclude the left sidebar (job listings) and just get the detail view
-          const detailSections = mainContent.querySelectorAll('section');
-          for (const section of detailSections) {
-            const text = section.innerText.trim();
-            // Job descriptions are usually 500+ chars and contain keywords
-            if (text.length > 500 && (text.includes('About the job') || text.includes('Qualifications') || text.includes('Requirements') || text.includes('Responsibilities') || text.includes('What you') || text.includes('Role'))) {
-              return text;
+        // Strategy 3: Search the full page text for "About the job" marker
+        const bodyText = document.body.innerText;
+        const markers = ['About the job', 'Over de functie', 'Job description', 'Description'];
+        for (const marker of markers) {
+          const idx = bodyText.indexOf(marker);
+          if (idx !== -1) {
+            const jobSection = bodyText.substring(idx, idx + 10000);
+            if (jobSection.length > 100) {
+              return jobSection;
             }
           }
+        }
+
+        // Strategy 4: Find all divs/sections and pick the one that looks most like a job description
+        const candidates = document.querySelectorAll('div, section, article');
+        const jobKeywords = ['experience', 'requirements', 'qualifications', 'responsibilities', 'salary', 'benefits', 'apply', 'skills', 'role', 'position', 'ervaring', 'functie', 'verantwoordelijkheden'];
+        let bestCandidate = '';
+        let bestScore = 0;
+
+        candidates.forEach((el) => {
+          const text = el.innerText.trim();
+          // Sweet spot: long enough to be a job desc, short enough to not be the whole page
+          if (text.length > 300 && text.length < 8000) {
+            const score = jobKeywords.filter(kw => text.toLowerCase().includes(kw)).length;
+            if (score > bestScore) {
+              bestScore = score;
+              bestCandidate = text;
+            }
+          }
+        });
+
+        if (bestCandidate.length > 200) {
+          return bestCandidate;
         }
       }
 
