@@ -158,6 +158,22 @@ async function scanJob() {
 
     const data = await response.json();
 
+    if (data.error && data.error === 'Could not parse structured response') {
+      // Claude returned something but it wasn't valid JSON — try to extract useful info from raw
+      if (data.raw) {
+        // Try to find JSON within the raw response
+        const jsonMatch = data.raw.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          try {
+            const parsed = JSON.parse(jsonMatch[0]);
+            renderResults(parsed);
+            return;
+          } catch (e) { /* fall through */ }
+        }
+      }
+      throw new Error('Could not parse structured response');
+    }
+
     if (data.error) {
       throw new Error(data.error);
     }
