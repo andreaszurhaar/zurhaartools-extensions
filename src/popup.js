@@ -73,12 +73,64 @@ async function extractJobText() {
   const results = await chrome.scripting.executeScript({
     target: { tabId: tab.id },
     func: () => {
-      // Try common job posting selectors
+      // LinkedIn-specific extraction (LinkedIn uses dynamic class names, so we need multiple strategies)
+      const isLinkedIn = window.location.hostname.includes('linkedin.com');
+
+      if (isLinkedIn) {
+        // Strategy 1: Job detail panel selectors (LinkedIn changes these frequently)
+        const linkedInSelectors = [
+          '.jobs-description__content',
+          '.jobs-box__html-content',
+          '.jobs-description-content__text',
+          '.jobs-unified-top-card__job-insight',
+          '#job-details',
+          '.job-view-layout',
+          // The job description is usually inside a div with these attributes
+          '[class*="jobs-description"]',
+          '[class*="job-details"]',
+        ];
+
+        for (const selector of linkedInSelectors) {
+          const el = document.querySelector(selector);
+          if (el && el.innerText.trim().length > 100) {
+            return el.innerText.trim();
+          }
+        }
+
+        // Strategy 2: Find the "About the job" section and grab everything after it
+        const allText = document.body.innerText;
+        const aboutIndex = allText.indexOf('About the job');
+        if (aboutIndex !== -1) {
+          // Grab text from "About the job" onwards, limited to ~10K chars
+          const jobSection = allText.substring(aboutIndex, aboutIndex + 10000);
+          if (jobSection.length > 100) {
+            return jobSection;
+          }
+        }
+
+        // Strategy 3: Look for the right-side detail panel
+        const rightPanel = document.querySelector('.jobs-search__job-details, .job-view-layout .jobs-details');
+        if (rightPanel && rightPanel.innerText.trim().length > 200) {
+          return rightPanel.innerText.trim();
+        }
+
+        // Strategy 4: Get the main content area, filtering out the sidebar job list
+        const mainContent = document.querySelector('main');
+        if (mainContent) {
+          // Try to exclude the left sidebar (job listings) and just get the detail view
+          const detailSections = mainContent.querySelectorAll('section');
+          for (const section of detailSections) {
+            const text = section.innerText.trim();
+            // Job descriptions are usually 500+ chars and contain keywords
+            if (text.length > 500 && (text.includes('About the job') || text.includes('Qualifications') || text.includes('Requirements') || text.includes('Responsibilities') || text.includes('What you') || text.includes('Role'))) {
+              return text;
+            }
+          }
+        }
+      }
+
+      // Non-LinkedIn: try common job posting selectors
       const selectors = [
-        // LinkedIn
-        '.jobs-description__content',
-        '.jobs-box__html-content',
-        '.job-details-jobs-unified-top-card__job-insight',
         // Indeed
         '#jobDescriptionText',
         '.jobsearch-JobComponent-description',
@@ -101,17 +153,23 @@ async function extractJobText() {
         }
       }
 
-      // Fallback: get the largest text block on the page
+      // Final fallback: find the largest text block that looks like a job posting
       const allElements = document.querySelectorAll('div, section, article, main');
-      let largest = '';
+      let bestMatch = '';
+      const jobKeywords = ['experience', 'requirements', 'qualifications', 'responsibilities', 'salary', 'benefits', 'apply', 'role', 'position'];
+
       allElements.forEach((el) => {
         const text = el.innerText.trim();
-        if (text.length > largest.length && text.length < 20000) {
-          largest = text;
+        if (text.length > 300 && text.length < 15000) {
+          const keywordCount = jobKeywords.filter(kw => text.toLowerCase().includes(kw)).length;
+          const bestKeywordCount = jobKeywords.filter(kw => bestMatch.toLowerCase().includes(kw)).length;
+          if (keywordCount > bestKeywordCount || (keywordCount === bestKeywordCount && text.length > bestMatch.length)) {
+            bestMatch = text;
+          }
         }
       });
 
-      return largest.length > 200 ? largest : null;
+      return bestMatch.length > 200 ? bestMatch : null;
     },
   });
 
