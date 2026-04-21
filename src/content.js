@@ -28,59 +28,86 @@ function extractJobText() {
 }
 
 function extractLinkedIn() {
-  // Strategy 1: Find "About the job" heading element and grab content after it
-  const walker = document.createTreeWalker(
-    document.body,
-    NodeFilter.SHOW_TEXT,
-    null
-  );
+  // Debug: log what we can find to help troubleshoot
+  console.log('[JRFD] Starting LinkedIn extraction...');
 
-  let node;
-  while ((node = walker.nextNode())) {
-    const text = node.textContent.trim().toLowerCase();
-    if (text === 'about the job' || text === 'over de functie') {
-      // Found the heading, now walk up and get the parent container's full text
-      let container = node.parentElement;
-      for (let i = 0; i < 8; i++) {
-        if (!container) break;
-        const containerText = container.innerText.trim();
-        // We want a container that has substantial content (the job description)
-        // but isn't the entire page
-        if (containerText.length > 500 && containerText.length < 15000) {
-          return containerText;
-        }
-        container = container.parentElement;
-      }
-    }
-  }
-
-  // Strategy 2: Known LinkedIn selectors
+  // Strategy 1: Known LinkedIn selectors (most reliable when they work)
   const selectors = [
     '#job-details',
     '.jobs-description__content',
     '.jobs-box__html-content',
     '.jobs-description-content__text',
     '[class*="jobs-description"]',
-    '[class*="job-details"]',
   ];
 
   for (const selector of selectors) {
     const el = document.querySelector(selector);
     if (el && el.innerText.trim().length > 100) {
+      console.log('[JRFD] Found via selector:', selector, '- length:', el.innerText.trim().length);
       return el.innerText.trim();
     }
   }
 
-  // Strategy 3: Full page text search for markers
-  const bodyText = document.body.innerText;
-  const markers = ['About the job', 'Over de functie', 'Job description'];
-  for (const marker of markers) {
-    const idx = bodyText.indexOf(marker);
-    if (idx !== -1) {
-      return bodyText.substring(idx, idx + 10000);
+  // Strategy 2: Find "About the job" text node and collect all text that follows it
+  // This works by finding the heading, then collecting text from ALL subsequent elements
+  const headings = ['about the job', 'over de functie'];
+  const allElements = document.querySelectorAll('*');
+
+  for (const el of allElements) {
+    // Check only direct text content (not children) to find the heading element precisely
+    const directText = Array.from(el.childNodes)
+      .filter(n => n.nodeType === Node.TEXT_NODE)
+      .map(n => n.textContent.trim().toLowerCase())
+      .join('');
+
+    if (headings.includes(directText)) {
+      console.log('[JRFD] Found heading element:', el.tagName, el.className);
+
+      // Collect text from this element and everything after it in the same scroll container
+      let parent = el.parentElement;
+      // Walk up to find a reasonable container (not the body)
+      for (let i = 0; i < 10; i++) {
+        if (!parent || parent === document.body) break;
+        const text = parent.innerText.trim();
+        console.log('[JRFD] Checking parent:', parent.tagName, parent.className?.substring(0, 50), '- length:', text.length);
+
+        // Look for a container that has the job description but isn't the whole page
+        if (text.length > 300 && text.length < 12000) {
+          // Make sure it actually contains job-related content, not just UI
+          const hasJobContent = text.includes('About the job') || text.includes('Over de functie');
+          const hasDetails = text.length > 500;
+          if (hasJobContent && hasDetails) {
+            console.log('[JRFD] Using parent container - length:', text.length);
+            return text;
+          }
+        }
+        parent = parent.parentElement;
+      }
+
+      // If walking up didn't work, just grab everything from the heading onwards in the page text
+      const pageText = document.body.innerText;
+      const headingIdx = pageText.toLowerCase().indexOf(directText);
+      if (headingIdx !== -1) {
+        const extracted = pageText.substring(headingIdx, headingIdx + 8000);
+        console.log('[JRFD] Using page text from heading - length:', extracted.length);
+        return extracted;
+      }
     }
   }
 
+  // Strategy 3: Full page text search for markers (broadest approach)
+  const bodyText = document.body.innerText;
+  const markers = ['About the job', 'Over de functie'];
+  for (const marker of markers) {
+    const idx = bodyText.indexOf(marker);
+    if (idx !== -1) {
+      const extracted = bodyText.substring(idx, idx + 8000);
+      console.log('[JRFD] Found marker in page text:', marker, '- length:', extracted.length);
+      return extracted;
+    }
+  }
+
+  console.log('[JRFD] All LinkedIn strategies failed, trying keyword scoring');
   // Strategy 4: Keyword-scored content blocks
   return extractByKeywordScore();
 }
