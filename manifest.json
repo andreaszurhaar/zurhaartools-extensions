@@ -23,6 +23,7 @@
     {
       "matches": [
         "*://*.linkedin.com/jobs/*",
+        "*://*.linkedin.com/job/*",
         "*://*.indeed.com/*",
         "*://*.glassdoor.com/*",
         "*://*.glassdoor.nl/*",

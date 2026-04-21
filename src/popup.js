@@ -70,128 +70,66 @@ function renderResults(data) {
 async function extractJobText() {
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
 
-  const results = await chrome.scripting.executeScript({
-    target: { tabId: tab.id },
-    func: () => {
-      // LinkedIn-specific extraction (LinkedIn uses dynamic class names, so we need multiple strategies)
-      const isLinkedIn = window.location.hostname.includes('linkedin.com');
+  // First try: send message to content script (works on sites where content script is injected)
+  try {
+    const response = await chrome.tabs.sendMessage(tab.id, { action: 'extractJobText' });
+    if (response && response.text && response.text.length > 100) {
+      return response.text;
+    }
+  } catch (e) {
+    // Content script not injected on this page, fall through to executeScript
+    console.log('Content script not available, using executeScript fallback');
+  }
 
-      if (isLinkedIn) {
-        // Strategy 1: Find "About the job" heading and grab its parent container
-        const allHeaders = document.querySelectorAll('h2, h3, h4, span, div');
-        for (const header of allHeaders) {
-          const headerText = header.innerText.trim().toLowerCase();
-          if (headerText === 'about the job' || headerText === 'over de functie') {
-            // Walk up to find the container with the full description
-            let container = header.parentElement;
-            for (let i = 0; i < 5; i++) {
-              if (container && container.innerText.trim().length > 300) {
-                return container.innerText.trim();
-              }
-              container = container?.parentElement;
-            }
-          }
-        }
-
-        // Strategy 2: Known LinkedIn selectors (they change often)
-        const linkedInSelectors = [
-          '#job-details',
-          '.jobs-description__content',
-          '.jobs-box__html-content',
-          '.jobs-description-content__text',
-          '[class*="jobs-description"]',
-          '[class*="job-details"]',
-          '.job-view-layout',
+  // Fallback: inject and execute script directly (for sites not in content_scripts matches)
+  try {
+    const results = await chrome.scripting.executeScript({
+      target: { tabId: tab.id },
+      func: () => {
+        const selectors = [
+          '[class*="job-description"]',
+          '[class*="jobDescription"]',
+          '[id*="job-description"]',
+          '[id*="jobDescription"]',
+          '#jobDescriptionText',
+          '.jobDescriptionContent',
+          'article',
+          '[role="main"]',
         ];
 
-        for (const selector of linkedInSelectors) {
+        for (const selector of selectors) {
           const el = document.querySelector(selector);
           if (el && el.innerText.trim().length > 100) {
             return el.innerText.trim();
           }
         }
 
-        // Strategy 3: Search the full page text for "About the job" marker
-        const bodyText = document.body.innerText;
-        const markers = ['About the job', 'Over de functie', 'Job description', 'Description'];
-        for (const marker of markers) {
-          const idx = bodyText.indexOf(marker);
-          if (idx !== -1) {
-            const jobSection = bodyText.substring(idx, idx + 10000);
-            if (jobSection.length > 100) {
-              return jobSection;
-            }
-          }
-        }
-
-        // Strategy 4: Find all divs/sections and pick the one that looks most like a job description
-        const candidates = document.querySelectorAll('div, section, article');
-        const jobKeywords = ['experience', 'requirements', 'qualifications', 'responsibilities', 'salary', 'benefits', 'apply', 'skills', 'role', 'position', 'ervaring', 'functie', 'verantwoordelijkheden'];
-        let bestCandidate = '';
+        // Keyword-scored fallback
+        const candidates = document.querySelectorAll('div, section, article, main');
+        const jobKeywords = ['experience', 'requirements', 'qualifications', 'responsibilities', 'salary', 'benefits', 'skills', 'apply'];
+        let best = '';
         let bestScore = 0;
 
         candidates.forEach((el) => {
           const text = el.innerText.trim();
-          // Sweet spot: long enough to be a job desc, short enough to not be the whole page
-          if (text.length > 300 && text.length < 8000) {
+          if (text.length > 300 && text.length < 10000) {
             const score = jobKeywords.filter(kw => text.toLowerCase().includes(kw)).length;
             if (score > bestScore) {
               bestScore = score;
-              bestCandidate = text;
+              best = text;
             }
           }
         });
 
-        if (bestCandidate.length > 200) {
-          return bestCandidate;
-        }
-      }
+        return best.length > 200 ? best : null;
+      },
+    });
 
-      // Non-LinkedIn: try common job posting selectors
-      const selectors = [
-        // Indeed
-        '#jobDescriptionText',
-        '.jobsearch-JobComponent-description',
-        // Glassdoor
-        '.jobDescriptionContent',
-        '#JobDescriptionContainer',
-        // Generic
-        '[class*="job-description"]',
-        '[class*="jobDescription"]',
-        '[id*="job-description"]',
-        '[id*="jobDescription"]',
-        'article',
-        '[role="main"]',
-      ];
-
-      for (const selector of selectors) {
-        const el = document.querySelector(selector);
-        if (el && el.innerText.trim().length > 100) {
-          return el.innerText.trim();
-        }
-      }
-
-      // Final fallback: find the largest text block that looks like a job posting
-      const allElements = document.querySelectorAll('div, section, article, main');
-      let bestMatch = '';
-      const jobKeywords = ['experience', 'requirements', 'qualifications', 'responsibilities', 'salary', 'benefits', 'apply', 'role', 'position'];
-
-      allElements.forEach((el) => {
-        const text = el.innerText.trim();
-        if (text.length > 300 && text.length < 15000) {
-          const keywordCount = jobKeywords.filter(kw => text.toLowerCase().includes(kw)).length;
-          const bestKeywordCount = jobKeywords.filter(kw => bestMatch.toLowerCase().includes(kw)).length;
-          if (keywordCount > bestKeywordCount || (keywordCount === bestKeywordCount && text.length > bestMatch.length)) {
-            bestMatch = text;
-          }
-        }
-      });
-
-      return bestMatch.length > 200 ? bestMatch : null;
-    },
-  });
-
-  return results[0]?.result || null;
+    return results[0]?.result || null;
+  } catch (e) {
+    console.error('executeScript also failed:', e);
+    return null;
+  }
 }
 
 async function scanJob() {
