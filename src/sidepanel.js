@@ -8,6 +8,8 @@ const scanBtn = document.getElementById('scan-btn');
 const rescanBtn = document.getElementById('rescan-btn');
 const retryBtn = document.getElementById('retry-btn');
 
+let isScanning = false;
+
 function showState(state) {
   [stateInitial, stateLoading, stateResults, stateError, stateNoJob].forEach(
     (el) => el.classList.add('hidden')
@@ -133,6 +135,9 @@ async function extractJobText() {
 }
 
 async function scanJob() {
+  if (isScanning) return;
+  isScanning = true;
+
   showState(stateLoading);
 
   try {
@@ -159,9 +164,7 @@ async function scanJob() {
     const data = await response.json();
 
     if (data.error && data.error === 'Could not parse structured response') {
-      // Claude returned something but it wasn't valid JSON — try to extract useful info from raw
       if (data.raw) {
-        // Try to find JSON within the raw response
         const jsonMatch = data.raw.match(/\{[\s\S]*\}/);
         if (jsonMatch) {
           try {
@@ -184,9 +187,38 @@ async function scanJob() {
     document.getElementById('error-message').textContent =
       err.message || 'Something went wrong. Please try again.';
     showState(stateError);
+  } finally {
+    isScanning = false;
   }
 }
 
 scanBtn.addEventListener('click', scanJob);
 rescanBtn.addEventListener('click', scanJob);
 retryBtn.addEventListener('click', scanJob);
+
+// Auto-rescan when user navigates to a new page on a supported job site
+const JOB_SITE_PATTERNS = [
+  'linkedin.com',
+  'indeed.com',
+  'glassdoor.com',
+  'glassdoor.nl',
+  'nationalevacaturebank.nl',
+  'monster.com',
+  'monster.nl',
+  'reed.co.uk',
+  'seek.com.au',
+  'stepstone.de',
+  'stepstone.nl',
+];
+
+chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
+  if (changeInfo.status === 'complete' && tab.active) {
+    const isJobSite = JOB_SITE_PATTERNS.some(pattern =>
+      tab.url && tab.url.includes(pattern)
+    );
+    if (isJobSite) {
+      // Delay to let dynamic content load (SPAs like LinkedIn)
+      setTimeout(() => scanJob(), 1500);
+    }
+  }
+});

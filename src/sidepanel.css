@@ -8,8 +8,8 @@ body {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   background: #09090f;
   color: #f1f5f9;
-  width: 380px;
-  max-height: 520px;
+  width: 100%;
+  min-height: 100vh;
   overflow-y: auto;
 }
 
