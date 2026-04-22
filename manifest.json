@@ -24,7 +24,8 @@
     "activeTab",
     "scripting",
     "sidePanel",
-    "tabs"
+    "tabs",
+    "storage"
   ],
   "content_scripts": [
     {

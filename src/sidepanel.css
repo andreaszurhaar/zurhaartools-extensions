@@ -21,6 +21,23 @@ header {
   margin-bottom: 16px;
 }
 
+.header-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+}
+
+.credits-display {
+  font-size: 11px;
+  color: #94a3b8;
+  background: #16161f;
+  border: 1px solid #1e1e2e;
+  padding: 4px 10px;
+  border-radius: 20px;
+  white-space: nowrap;
+  margin-top: 2px;
+}
+
 header h1 {
   font-size: 18px;
   font-weight: 700;
@@ -233,6 +250,121 @@ header h1 {
   font-size: 11px;
   color: #94a3b8;
   line-height: 1.4;
+}
+
+/* Welcome */
+.welcome-heading {
+  font-size: 16px;
+  font-weight: 600;
+  margin-bottom: 16px;
+}
+
+.welcome-features {
+  list-style: none;
+  width: 100%;
+  margin-bottom: 20px;
+}
+
+.welcome-features li {
+  font-size: 13px;
+  color: #94a3b8;
+  padding: 8px 0;
+  border-bottom: 1px solid #1e1e2e;
+  text-align: left;
+}
+
+.welcome-features li::before {
+  content: '✓ ';
+  color: #22c55e;
+  font-weight: 600;
+}
+
+.license-section {
+  width: 100%;
+  margin-top: 8px;
+  padding-top: 16px;
+  border-top: 1px solid #1e1e2e;
+}
+
+.license-label {
+  font-size: 12px;
+  color: #64748b;
+  margin-bottom: 8px;
+}
+
+.license-input-row {
+  display: flex;
+  gap: 8px;
+}
+
+.license-input {
+  flex: 1;
+  background: #16161f;
+  border: 1px solid #1e1e2e;
+  color: #f1f5f9;
+  border-radius: 8px;
+  padding: 10px 12px;
+  font-size: 13px;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.license-input:focus {
+  border-color: #f97316;
+}
+
+.license-input::placeholder {
+  color: #475569;
+}
+
+.btn-activate {
+  padding: 10px 16px;
+  background: #16161f;
+  color: #f97316;
+  border: 1px solid #f97316;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-activate:hover {
+  background: rgba(249, 115, 22, 0.1);
+}
+
+.license-error {
+  font-size: 12px;
+  color: #ef4444;
+  margin-top: 8px;
+  text-align: left;
+}
+
+/* No credits */
+.no-credits-heading {
+  font-size: 16px;
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+
+.no-credits-text {
+  font-size: 13px;
+  color: #94a3b8;
+  margin-bottom: 16px;
+}
+
+.btn-link {
+  background: none;
+  border: none;
+  color: #64748b;
+  font-size: 12px;
+  cursor: pointer;
+  text-decoration: underline;
+  transition: color 0.2s;
+}
+
+.btn-link:hover {
+  color: #94a3b8;
 }
 
 /* Error */

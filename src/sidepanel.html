@@ -9,12 +9,40 @@
 <body>
   <div class="container">
     <header>
-      <h1>Job Red Flag Detector</h1>
-      <p class="subtitle">by <a href="https://zurhaartools.com" target="_blank">Zurhaar Tools</a></p>
+      <div class="header-row">
+        <div>
+          <h1>Job Red Flag Detector</h1>
+          <p class="subtitle">by <a href="https://zurhaartools.com" target="_blank">Zurhaar Tools</a></p>
+        </div>
+        <span id="credits-display" class="credits-display hidden"></span>
+      </div>
     </header>
 
-    <!-- Initial state -->
-    <div id="state-initial" class="state">
+    <!-- Welcome state (no license key) -->
+    <div id="state-welcome" class="state">
+      <h2 class="welcome-heading">Spot red flags in any job posting</h2>
+      <ul class="welcome-features">
+        <li>Instant analysis of job postings</li>
+        <li>Detects vague salary, toxic culture signals</li>
+        <li>Flags unrealistic requirements</li>
+        <li>Score out of 10 with detailed breakdown</li>
+        <li>Works on LinkedIn, Indeed, Glassdoor & more</li>
+      </ul>
+      <a id="get-started-btn" href="#" target="_blank" class="btn-primary" style="margin-bottom: 20px;">
+        Get Started — from €4.99
+      </a>
+      <div class="license-section">
+        <p class="license-label">Already have a license key?</p>
+        <div class="license-input-row">
+          <input type="text" id="license-input" class="license-input" placeholder="Paste your license key" />
+          <button id="activate-btn" class="btn-activate">Activate</button>
+        </div>
+        <p id="license-error" class="license-error hidden"></p>
+      </div>
+    </div>
+
+    <!-- Initial state (has key, ready to scan) -->
+    <div id="state-initial" class="state hidden">
       <p class="description">Click the button below to analyze the current job posting for red flags.</p>
       <button id="scan-btn" class="btn-primary">
         <span class="btn-icon">&#128269;</span>
@@ -31,25 +59,33 @@
 
     <!-- Results state -->
     <div id="state-results" class="state hidden">
-      <!-- Score -->
       <div id="score-container" class="score-container">
         <div id="score-badge" class="score-badge"></div>
         <p id="score-summary" class="score-summary"></p>
       </div>
 
-      <!-- Red flags -->
       <div id="red-flags-section" class="section">
         <h2 class="section-title red">&#9888; Red Flags</h2>
         <div id="red-flags-list" class="flags-list"></div>
       </div>
 
-      <!-- Green flags -->
       <div id="green-flags-section" class="section">
         <h2 class="section-title green">&#10003; Green Flags</h2>
         <div id="green-flags-list" class="flags-list"></div>
       </div>
 
       <button id="rescan-btn" class="btn-secondary">Scan Again</button>
+    </div>
+
+    <!-- No credits state -->
+    <div id="state-no-credits" class="state hidden">
+      <p class="error-icon">&#128176;</p>
+      <p class="no-credits-heading">You've used all your scans</p>
+      <p class="no-credits-text">Purchase more scan credits to continue analyzing job postings.</p>
+      <a id="buy-more-btn" href="#" target="_blank" class="btn-primary" style="margin-bottom: 12px;">
+        Buy More Scans
+      </a>
+      <button id="change-key-btn" class="btn-link">Use a different license key</button>
     </div>
 
     <!-- Error state -->
