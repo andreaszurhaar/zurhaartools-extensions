@@ -13,6 +13,7 @@ const activateBtn = document.getElementById('activate-btn');
 const getStartedBtn = document.getElementById('get-started-btn');
 const buyMoreBtn = document.getElementById('buy-more-btn');
 const changeKeyBtn = document.getElementById('change-key-btn');
+const retryScanBtn = document.getElementById('retry-scan-btn');
 const licenseInput = document.getElementById('license-input');
 const licenseError = document.getElementById('license-error');
 
@@ -139,15 +140,19 @@ async function extractJobText() {
     const results = await chrome.scripting.executeScript({
       target: { tabId: tab.id },
       func: () => {
+        // Strategy 1: Known job site selectors
         const selectors = [
+          '#job-details',
+          '.jobs-description__content',
+          '.jobs-box__html-content',
+          '.jobs-description-content__text',
+          '[class*="jobs-description"]',
           '[class*="job-description"]',
           '[class*="jobDescription"]',
           '[id*="job-description"]',
           '[id*="jobDescription"]',
           '#jobDescriptionText',
           '.jobDescriptionContent',
-          'article',
-          '[role="main"]',
         ];
 
         for (const selector of selectors) {
@@ -157,14 +162,33 @@ async function extractJobText() {
           }
         }
 
+        // Strategy 2: Find job content markers in page text
+        const bodyText = document.body.innerText;
+        const markers = [
+          'About the job', 'Over de functie', 'Job summary', 'Job description',
+          'Job Description', 'Functieomschrijving', 'Role Description',
+          'About this role', 'About the role', 'The Role', 'What you\'ll do',
+        ];
+        for (const marker of markers) {
+          const idx = bodyText.indexOf(marker);
+          if (idx !== -1) {
+            return bodyText.substring(idx, idx + 8000);
+          }
+        }
+
+        // Strategy 3: Find the largest content block that looks like a job posting
         const candidates = document.querySelectorAll('div, section, article, main');
-        const jobKeywords = ['experience', 'requirements', 'qualifications', 'responsibilities', 'salary', 'benefits', 'skills', 'apply'];
+        const jobKeywords = [
+          'experience', 'requirements', 'qualifications', 'responsibilities',
+          'salary', 'benefits', 'skills', 'apply', 'role', 'position',
+          'ervaring', 'functie', 'verantwoordelijkheden', 'salaris',
+        ];
         let best = '';
         let bestScore = 0;
 
         candidates.forEach((el) => {
           const text = el.innerText.trim();
-          if (text.length > 300 && text.length < 10000) {
+          if (text.length > 200 && text.length < 15000) {
             const score = jobKeywords.filter(kw => text.toLowerCase().includes(kw)).length;
             if (score > bestScore) {
               bestScore = score;
@@ -356,6 +380,7 @@ async function init() {
 scanBtn.addEventListener('click', scanJob);
 rescanBtn.addEventListener('click', scanJob);
 retryBtn.addEventListener('click', scanJob);
+retryScanBtn.addEventListener('click', scanJob);
 activateBtn.addEventListener('click', activateLicense);
 
 licenseInput.addEventListener('keydown', (e) => {
@@ -366,27 +391,6 @@ changeKeyBtn.addEventListener('click', async () => {
   await clearLicenseKey();
   updateCreditsDisplay(null);
   showState(stateWelcome);
-});
-
-// Auto-rescan on navigation (only if licensed)
-const JOB_SITE_PATTERNS = [
-  'linkedin.com', 'indeed.com', 'glassdoor.com', 'glassdoor.nl',
-  'nationalevacaturebank.nl', 'monster.com', 'monster.nl',
-  'reed.co.uk', 'seek.com.au', 'stepstone.de', 'stepstone.nl',
-];
-
-chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
-  if (changeInfo.status === 'complete' && tab.active) {
-    const licenseKey = await getLicenseKey();
-    if (!licenseKey) return;
-
-    const isJobSite = JOB_SITE_PATTERNS.some(pattern =>
-      tab.url && tab.url.includes(pattern)
-    );
-    if (isJobSite) {
-      setTimeout(() => scanJob(), 1500);
-    }
-  }
 });
 
 // Start
