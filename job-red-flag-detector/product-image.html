@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    width: 1600px;
+    height: 1200px;
+    background: #09090f;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    overflow: hidden;
+  }
+  .card {
+    background: #12121a;
+    border: 1px solid #1e1e2e;
+    border-radius: 24px;
+    padding: 60px;
+    max-width: 1200px;
+    text-align: center;
+  }
+  .badge {
+    display: inline-block;
+    background: linear-gradient(to right, rgba(249,115,22,0.15), rgba(239,68,68,0.15));
+    border: 1px solid rgba(249,115,22,0.3);
+    color: #fb923c;
+    font-size: 16px;
+    font-weight: 600;
+    padding: 8px 20px;
+    border-radius: 30px;
+    margin-bottom: 30px;
+  }
+  h1 {
+    font-size: 56px;
+    font-weight: 800;
+    background: linear-gradient(to right, #f97316, #ef4444);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    margin-bottom: 20px;
+  }
+  .subtitle {
+    font-size: 24px;
+    color: #94a3b8;
+    margin-bottom: 50px;
+    line-height: 1.5;
+  }
+  .features {
+    display: flex;
+    gap: 30px;
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+  .feature {
+    background: #16161f;
+    border: 1px solid #1e1e2e;
+    border-radius: 16px;
+    padding: 24px 28px;
+    text-align: left;
+    width: 240px;
+  }
+  .feature-icon {
+    font-size: 28px;
+    margin-bottom: 12px;
+  }
+  .feature-title {
+    color: #f1f5f9;
+    font-size: 16px;
+    font-weight: 600;
+    margin-bottom: 6px;
+  }
+  .feature-desc {
+    color: #64748b;
+    font-size: 13px;
+    line-height: 1.4;
+  }
+  .score-demo {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    background: #16161f;
+    border: 1px solid #1e1e2e;
+    border-radius: 14px;
+    padding: 20px 28px;
+    margin-top: 40px;
+    text-align: left;
+    max-width: 500px;
+    margin-left: auto;
+    margin-right: auto;
+  }
+  .score-num {
+    width: 64px;
+    height: 64px;
+    background: rgba(34, 197, 94, 0.15);
+    color: #22c55e;
+    border-radius: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 24px;
+    font-weight: 800;
+    flex-shrink: 0;
+  }
+  .score-text {
+    color: #94a3b8;
+    font-size: 15px;
+    line-height: 1.4;
+  }
+  .by {
+    color: #475569;
+    font-size: 14px;
+    margin-top: 30px;
+  }
+  .by a { color: #fb923c; text-decoration: none; }
+</style>
+</head>
+<body>
+  <div class="card">
+    <div class="badge">Chrome Extension</div>
+    <h1>Job Red Flag Detector</h1>
+    <p class="subtitle">Instantly spot warning signs in any job posting.<br>Vague salary, toxic culture, unrealistic requirements — caught in seconds.</p>
+    <div class="features">
+      <div class="feature">
+        <div class="feature-icon">🔍</div>
+        <div class="feature-title">Instant Analysis</div>
+        <div class="feature-desc">One click to scan any job posting on LinkedIn, Indeed, Glassdoor & more</div>
+      </div>
+      <div class="feature">
+        <div class="feature-icon">🚩</div>
+        <div class="feature-title">Red Flag Detection</div>
+        <div class="feature-desc">Catches vague salary, "fast-paced family", unrealistic requirements</div>
+      </div>
+      <div class="feature">
+        <div class="feature-icon">✅</div>
+        <div class="feature-title">Green Flags Too</div>
+        <div class="feature-desc">Highlights positive signals like clear salary, good benefits, real growth</div>
+      </div>
+      <div class="feature">
+        <div class="feature-icon">📊</div>
+        <div class="feature-title">Score Out of 10</div>
+        <div class="feature-desc">Overall rating with detailed breakdown of every flag found</div>
+      </div>
+    </div>
+    <div class="score-demo">
+      <div class="score-num">7/10</div>
+      <div class="score-text">A solid posting with clear expectations, though the wide salary range warrants clarification.</div>
+    </div>
+    <p class="by">by <a href="https://zurhaartools.com">Zurhaar Tools</a></p>
+  </div>
+</body>
+</html>

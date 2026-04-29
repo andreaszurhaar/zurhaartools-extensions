@@ -1,2 +1,16 @@
+# macOS
 .DS_Store
+
+# Build artifacts
 *.zip
+
+# IDE
+.idea/
+.vscode/
+*.swp
+
+# Chrome extension dev
+key.pem
+
+# Wrangler
+.wrangler/
