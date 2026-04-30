@@ -8,9 +8,13 @@
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.action === 'extractJobText') {
     console.log('[JRFD] >>> Content script received extractJobText message');
+    console.log('[JRFD] >>> window.location.href:', window.location.href);
+    console.log('[JRFD] >>> Is main frame (self===top):', window.self === window.top);
+    console.log('[JRFD] >>> document.body.innerText length:', document.body?.innerText?.length || 0);
+    console.log('[JRFD] >>> document.body.innerText first 300 chars:', document.body?.innerText?.substring(0, 300));
     const text = extractJobText();
     console.log('[JRFD] >>> Content script responding with text length:', text ? text.length : 'null');
-    console.log('[JRFD] >>> First 300 chars:', text ? text.substring(0, 300) : 'null');
+    console.log('[JRFD] >>> Response first 300 chars:', text ? text.substring(0, 300) : 'null');
     sendResponse({ text });
   }
   return true;

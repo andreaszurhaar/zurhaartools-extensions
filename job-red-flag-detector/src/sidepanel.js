@@ -129,8 +129,8 @@ async function extractJobText() {
   console.log('[JRFD-sidepanel] extractJobText called, tab:', tab?.id, tab?.url);
 
   try {
-    console.log('[JRFD-sidepanel] Trying content script messaging (chrome.tabs.sendMessage)...');
-    const response = await chrome.tabs.sendMessage(tab.id, { action: 'extractJobText' });
+    console.log('[JRFD-sidepanel] Trying content script messaging (chrome.tabs.sendMessage, frameId: 0)...');
+    const response = await chrome.tabs.sendMessage(tab.id, { action: 'extractJobText' }, { frameId: 0 });
     console.log('[JRFD-sidepanel] Content script responded:', response ? 'yes' : 'no', '- text length:', response?.text?.length || 0);
     if (response && response.text && response.text.length > 100) {
       console.log('[JRFD-sidepanel] SUCCESS via content script, first 300 chars:', response.text.substring(0, 300));
@@ -144,7 +144,7 @@ async function extractJobText() {
   try {
     console.log('[JRFD-sidepanel] Trying executeScript fallback...');
     const results = await chrome.scripting.executeScript({
-      target: { tabId: tab.id },
+      target: { tabId: tab.id, frameIds: [0] },
       func: () => {
         console.log('[JRFD-executeScript] Running in page context, URL:', window.location.href);
         console.log('[JRFD-executeScript] document.body.innerText length:', document.body?.innerText?.length || 0);
