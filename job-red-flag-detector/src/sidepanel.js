@@ -129,8 +129,8 @@ async function extractJobText() {
   console.log('[JRFD-sidepanel] extractJobText called, tab:', tab?.id, tab?.url);
 
   try {
-    console.log('[JRFD-sidepanel] Trying content script messaging (chrome.tabs.sendMessage, frameId: 0)...');
-    const response = await chrome.tabs.sendMessage(tab.id, { action: 'extractJobText' }, { frameId: 0 });
+    console.log('[JRFD-sidepanel] Trying content script messaging (chrome.tabs.sendMessage, all frames)...');
+    const response = await chrome.tabs.sendMessage(tab.id, { action: 'extractJobText' });
     console.log('[JRFD-sidepanel] Content script responded:', response ? 'yes' : 'no', '- text length:', response?.text?.length || 0);
     if (response && response.text && response.text.length > 100) {
       console.log('[JRFD-sidepanel] SUCCESS via content script, first 300 chars:', response.text.substring(0, 300));
@@ -146,8 +146,17 @@ async function extractJobText() {
     const results = await chrome.scripting.executeScript({
       target: { tabId: tab.id, frameIds: [0] },
       func: () => {
-        console.log('[JRFD-executeScript] Running in page context, URL:', window.location.href);
-        console.log('[JRFD-executeScript] document.body.innerText length:', document.body?.innerText?.length || 0);
+        console.log('[JRFD-executeScript] Running in page context');
+        console.log('[JRFD-executeScript] URL:', window.location.href);
+        console.log('[JRFD-executeScript] self===top:', window.self === window.top);
+        console.log('[JRFD-executeScript] body.innerText length:', document.body?.innerText?.length || 0);
+        console.log('[JRFD-executeScript] body.innerText FULL (if <100):', document.body?.innerText?.length < 100 ? JSON.stringify(document.body?.innerText) : '(too long, first 300: ' + document.body?.innerText?.substring(0, 300) + ')');
+        console.log('[JRFD-executeScript] body.innerHTML length:', document.body?.innerHTML?.length || 0);
+        console.log('[JRFD-executeScript] document.title:', document.title);
+        // Check for shadow DOM
+        let shadowCount = 0;
+        document.querySelectorAll('*').forEach(el => { if (el.shadowRoot) shadowCount++; });
+        console.log('[JRFD-executeScript] Elements with shadowRoot:', shadowCount);
         const markers = [
           'About the job', 'About the role', 'About this role', 'About this position',
           'Job description', 'Job Description', 'Job summary', 'Job Summary',

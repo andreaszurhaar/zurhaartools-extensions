@@ -7,13 +7,28 @@
 
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.action === 'extractJobText') {
-    console.log('[JRFD] >>> Content script received extractJobText message');
-    console.log('[JRFD] >>> window.location.href:', window.location.href);
-    console.log('[JRFD] >>> Is main frame (self===top):', window.self === window.top);
+    const isMainFrame = window.self === window.top;
+    console.log('[JRFD] >>> Message received | frame:', isMainFrame ? 'MAIN' : 'SUB', '| URL:', window.location.href);
     console.log('[JRFD] >>> document.body.innerText length:', document.body?.innerText?.length || 0);
-    console.log('[JRFD] >>> document.body.innerText first 300 chars:', document.body?.innerText?.substring(0, 300));
+
+    // Only extract from the main frame — sub-frames have no useful content
+    // IMPORTANT: do NOT call sendResponse from sub-frames, otherwise Chrome
+    // uses the first response and ignores the main frame's response
+    if (!isMainFrame) {
+      console.log('[JRFD] >>> Skipping sub-frame, NOT responding (letting main frame respond)');
+      return;
+    }
+
+    console.log('[JRFD] >>> body first 300 chars:', document.body?.innerText?.substring(0, 300));
+
+    // Check for shadow DOM elements
+    const shadowHosts = document.querySelectorAll('*');
+    let shadowCount = 0;
+    shadowHosts.forEach(el => { if (el.shadowRoot) shadowCount++; });
+    console.log('[JRFD] >>> Elements with shadowRoot:', shadowCount);
+
     const text = extractJobText();
-    console.log('[JRFD] >>> Content script responding with text length:', text ? text.length : 'null');
+    console.log('[JRFD] >>> Responding with text length:', text ? text.length : 'null');
     console.log('[JRFD] >>> Response first 300 chars:', text ? text.substring(0, 300) : 'null');
     sendResponse({ text });
   }
