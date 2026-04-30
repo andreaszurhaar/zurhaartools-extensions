@@ -379,6 +379,8 @@ async function scanJob() {
     }
 
     const data = await response.json();
+    console.log('[JRFD-sidepanel] API response status:', response.status);
+    console.log('[JRFD-sidepanel] API response data:', JSON.stringify(data, null, 2));
 
     if (data.error && data.error === 'Could not parse structured response') {
       if (data.raw) {
