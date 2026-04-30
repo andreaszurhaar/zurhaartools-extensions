@@ -7,7 +7,10 @@
 
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.action === 'extractJobText') {
+    console.log('[JRFD] >>> Content script received extractJobText message');
     const text = extractJobText();
+    console.log('[JRFD] >>> Content script responding with text length:', text ? text.length : 'null');
+    console.log('[JRFD] >>> First 300 chars:', text ? text.substring(0, 300) : 'null');
     sendResponse({ text });
   }
   return true;
@@ -43,37 +46,52 @@ const JOB_KEYWORDS = [
 const NOISE_SELECTORS = 'nav, header, footer, aside, [role="navigation"], [role="banner"], [role="contentinfo"], [aria-label="navigation"]';
 
 function extractJobText() {
-  console.log('[JRFD] Starting extraction on', window.location.hostname);
+  console.log('[JRFD] ========== EXTRACTION START ==========');
+  console.log('[JRFD] URL:', window.location.href);
+  console.log('[JRFD] document.body exists:', !!document.body);
+  console.log('[JRFD] document.body.innerText length:', document.body?.innerText?.length || 0);
 
   // Strategy 1: Quick-win selectors (site-specific optimization)
+  console.log('[JRFD] --- Strategy 1: Quick-win selectors ---');
   const selectorResult = trySelectors();
   if (selectorResult) {
-    console.log('[JRFD] Found via selector - length:', selectorResult.length);
+    console.log('[JRFD] SUCCESS via selector - length:', selectorResult.length);
+    console.log('[JRFD] First 300 chars:', selectorResult.substring(0, 300));
     return cleanText(selectorResult);
   }
+  console.log('[JRFD] Strategy 1 failed: no selectors matched');
 
   // Strategy 2: Marker-based extraction (find heading, walk up to container)
+  console.log('[JRFD] --- Strategy 2: Marker-based extraction ---');
   const markerResult = tryMarkerExtraction();
   if (markerResult) {
-    console.log('[JRFD] Found via marker - length:', markerResult.length);
+    console.log('[JRFD] SUCCESS via marker - length:', markerResult.length);
+    console.log('[JRFD] First 300 chars:', markerResult.substring(0, 300));
     return cleanText(markerResult);
   }
+  console.log('[JRFD] Strategy 2 failed: no markers found');
 
   // Strategy 3: Keyword density scoring
+  console.log('[JRFD] --- Strategy 3: Keyword density scoring ---');
   const scoredResult = tryKeywordScoring();
   if (scoredResult) {
-    console.log('[JRFD] Found via keyword scoring - length:', scoredResult.length);
+    console.log('[JRFD] SUCCESS via keyword scoring - length:', scoredResult.length);
+    console.log('[JRFD] First 300 chars:', scoredResult.substring(0, 300));
     return cleanText(scoredResult);
   }
+  console.log('[JRFD] Strategy 3 failed');
 
   // Strategy 4: Generous fallback — grab main content or largest text block
+  console.log('[JRFD] --- Strategy 4: Generous fallback ---');
   const fallbackResult = tryFallback();
   if (fallbackResult) {
-    console.log('[JRFD] Found via fallback - length:', fallbackResult.length);
+    console.log('[JRFD] SUCCESS via fallback - length:', fallbackResult.length);
+    console.log('[JRFD] First 300 chars:', fallbackResult.substring(0, 300));
     return cleanText(fallbackResult);
   }
 
-  console.log('[JRFD] All extraction strategies failed');
+  console.log('[JRFD] ALL STRATEGIES FAILED');
+  console.log('[JRFD] ========== EXTRACTION END ==========');
   return null;
 }
 
@@ -93,8 +111,15 @@ function trySelectors() {
 
   for (const selector of selectors) {
     const el = document.querySelector(selector);
-    if (el && el.innerText.trim().length > 100) {
-      return el.innerText.trim();
+    if (el) {
+      const text = el.innerText.trim();
+      console.log('[JRFD]   Selector', selector, '-> found, length:', text.length);
+      if (text.length > 100) {
+        return text;
+      }
+      console.log('[JRFD]   -> too short, skipping');
+    } else {
+      console.log('[JRFD]   Selector', selector, '-> not found');
     }
   }
   return null;
@@ -103,68 +128,99 @@ function trySelectors() {
 // ── Strategy 2: Marker-based extraction ──
 function tryMarkerExtraction() {
   // Use TreeWalker to find text nodes that match job headings
+  console.log('[JRFD]   Walking text nodes with TreeWalker...');
   const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, null);
   let textNode;
+  let textNodeCount = 0;
+  let markerHits = 0;
 
   while ((textNode = walker.nextNode())) {
+    textNodeCount++;
     const trimmed = textNode.textContent.trim();
     if (trimmed.length < 5 || trimmed.length > 50) continue;
 
     const matchedMarker = JOB_MARKERS.find(m => trimmed.toLowerCase() === m.toLowerCase());
     if (!matchedMarker) continue;
 
-    console.log('[JRFD] Found marker:', matchedMarker, 'in:', textNode.parentElement?.tagName);
+    markerHits++;
+    console.log('[JRFD]   MARKER HIT:', matchedMarker);
+    console.log('[JRFD]     Parent element:', textNode.parentElement?.tagName, textNode.parentElement?.className?.substring(0, 80));
+    console.log('[JRFD]     Parent outerHTML (first 200):', textNode.parentElement?.outerHTML?.substring(0, 200));
 
     // Walk up the DOM to find a container with substantial job content
     let container = textNode.parentElement;
     for (let i = 0; i < 20; i++) {
-      if (!container || container === document.body) break;
+      if (!container || container === document.body) {
+        console.log('[JRFD]     Walk step', i, ': reached body/null, stopping');
+        break;
+      }
 
       // Skip noise elements
       if (container.matches && container.matches(NOISE_SELECTORS)) {
+        console.log('[JRFD]     Walk step', i, ': noise element, skipping -', container.tagName);
         container = container.parentElement;
         continue;
       }
 
       const text = container.innerText.trim();
+      console.log('[JRFD]     Walk step', i, ':', container.tagName, '- class:', container.className?.substring(0, 60), '- length:', text.length);
 
       // Accept containers between 500 and 30000 chars that have job signals
       if (text.length > 500 && text.length < 30000) {
         const lower = text.toLowerCase();
         const signalCount = JOB_KEYWORDS.filter(kw => lower.includes(kw)).length;
+        console.log('[JRFD]     -> In range (500-30000), signals:', signalCount);
         if (signalCount >= 2) {
-          console.log('[JRFD] Using container:', container.tagName, '- length:', text.length, '- signals:', signalCount);
+          console.log('[JRFD]     -> ACCEPTED! First 300 chars:', text.substring(0, 300));
           return text;
         }
+        console.log('[JRFD]     -> Not enough signals (need >= 2)');
+      } else if (text.length <= 500) {
+        console.log('[JRFD]     -> Too short (< 500)');
+      } else {
+        console.log('[JRFD]     -> Too long (> 30000)');
       }
       container = container.parentElement;
     }
 
     // Container walk didn't find a good block — grab from body text starting at the marker
+    console.log('[JRFD]   Container walk failed, trying body text fallback for marker:', matchedMarker);
     const bodyText = getCleanBodyText();
+    console.log('[JRFD]   Clean body text length:', bodyText.length);
     const markerIdx = bodyText.indexOf(matchedMarker);
-    if (markerIdx === -1) {
-      // Try case-insensitive
-      const lowerBody = bodyText.toLowerCase();
-      const lowerMarker = matchedMarker.toLowerCase();
-      const idx = lowerBody.indexOf(lowerMarker);
-      if (idx !== -1) {
-        return bodyText.substring(idx, idx + 10000);
-      }
-    } else {
-      return bodyText.substring(markerIdx, markerIdx + 10000);
+    if (markerIdx !== -1) {
+      console.log('[JRFD]   Found marker at index:', markerIdx);
+      const extracted = bodyText.substring(markerIdx, markerIdx + 10000);
+      console.log('[JRFD]   Extracted first 300 chars:', extracted.substring(0, 300));
+      return extracted;
     }
+    // Try case-insensitive
+    const lowerBody = bodyText.toLowerCase();
+    const lowerMarker = matchedMarker.toLowerCase();
+    const idx = lowerBody.indexOf(lowerMarker);
+    if (idx !== -1) {
+      console.log('[JRFD]   Found marker (case-insensitive) at index:', idx);
+      return bodyText.substring(idx, idx + 10000);
+    }
+    console.log('[JRFD]   Marker not found in clean body text either');
   }
 
+  console.log('[JRFD]   TreeWalker traversed', textNodeCount, 'text nodes,', markerHits, 'marker hits');
+
   // TreeWalker didn't find headings — try plain text search on body
+  console.log('[JRFD]   Trying plain text search on body...');
   const bodyText = getCleanBodyText();
+  console.log('[JRFD]   Clean body text length:', bodyText.length);
   for (const marker of JOB_MARKERS) {
     const idx = bodyText.indexOf(marker);
     if (idx !== -1) {
-      console.log('[JRFD] Found marker in body text:', marker);
-      return bodyText.substring(idx, idx + 10000);
+      console.log('[JRFD]   Found marker in body text:', marker, 'at index:', idx);
+      const extracted = bodyText.substring(idx, idx + 10000);
+      console.log('[JRFD]   First 300 chars:', extracted.substring(0, 300));
+      return extracted;
     }
   }
+  console.log('[JRFD]   No markers found in body text');
 
   return null;
 }
@@ -174,37 +230,54 @@ function tryKeywordScoring() {
   const candidates = document.querySelectorAll('div, section, article, main, [role="main"]');
   let bestText = '';
   let bestScore = 0;
+  let bestEl = null;
+  let candidateCount = 0;
+  let scoredCount = 0;
 
   candidates.forEach((el) => {
+    candidateCount++;
     // Skip noise containers
     if (el.closest(NOISE_SELECTORS)) return;
 
     const text = el.innerText.trim();
     if (text.length < 300) return;
 
+    scoredCount++;
     const lower = text.toLowerCase();
-    // Score: count unique keyword matches, weighted by density
     const matchCount = JOB_KEYWORDS.filter(kw => lower.includes(kw)).length;
-    // Prefer elements that aren't the entire page — penalize very large blocks slightly
     const sizePenalty = text.length > 15000 ? 0.7 : 1;
     const score = matchCount * sizePenalty;
 
     if (score > bestScore) {
       bestScore = score;
       bestText = text;
+      bestEl = el;
     }
   });
 
-  if (bestScore < 3 || bestText.length < 300) return null;
+  console.log('[JRFD]   Candidates:', candidateCount, '- Scored (>300 chars, non-noise):', scoredCount);
+  console.log('[JRFD]   Best score:', bestScore, '- Best length:', bestText.length);
+  if (bestEl) {
+    console.log('[JRFD]   Best element:', bestEl.tagName, '- class:', bestEl.className?.substring(0, 80));
+    console.log('[JRFD]   Best text first 300 chars:', bestText.substring(0, 300));
+  }
+
+  if (bestScore < 3 || bestText.length < 300) {
+    console.log('[JRFD]   Rejected: score < 3 or length < 300');
+    return null;
+  }
 
   // If the best block is large, try to trim from a known marker
   if (bestText.length > 10000) {
+    console.log('[JRFD]   Best block is large (' + bestText.length + '), trimming...');
     for (const marker of JOB_MARKERS) {
       const idx = bestText.indexOf(marker);
       if (idx !== -1) {
+        console.log('[JRFD]   Trimming from marker:', marker, 'at index:', idx);
         return bestText.substring(idx, idx + 10000);
       }
     }
+    console.log('[JRFD]   No marker found for trimming, using first 10000 chars');
     return bestText.substring(0, 10000);
   }
 
@@ -215,14 +288,18 @@ function tryKeywordScoring() {
 function tryFallback() {
   // Try main content area
   const main = document.querySelector('main, [role="main"], article');
+  console.log('[JRFD]   main/article element:', main ? main.tagName + ' - length: ' + main.innerText.trim().length : 'not found');
   if (main && main.innerText.trim().length > 300) {
     const text = main.innerText.trim();
+    console.log('[JRFD]   Using main/article, first 300 chars:', text.substring(0, 300));
     return text.length > 10000 ? text.substring(0, 10000) : text;
   }
 
   // Last resort: clean body text (minus nav/header/footer)
   const bodyText = getCleanBodyText();
+  console.log('[JRFD]   Clean body text length:', bodyText.length);
   if (bodyText.length > 300) {
+    console.log('[JRFD]   Using clean body text, first 300 chars:', bodyText.substring(0, 300));
     return bodyText.length > 10000 ? bodyText.substring(0, 10000) : bodyText;
   }
 
@@ -234,7 +311,9 @@ function tryFallback() {
 // Get body text with noise elements removed
 function getCleanBodyText() {
   const clone = document.body.cloneNode(true);
-  clone.querySelectorAll(NOISE_SELECTORS).forEach(el => el.remove());
+  const removed = clone.querySelectorAll(NOISE_SELECTORS);
+  console.log('[JRFD]   getCleanBodyText: removing', removed.length, 'noise elements');
+  removed.forEach(el => el.remove());
   return clone.innerText.trim();
 }
 

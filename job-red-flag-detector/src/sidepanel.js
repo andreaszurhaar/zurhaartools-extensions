@@ -126,20 +126,28 @@ function renderResults(data) {
 
 async function extractJobText() {
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+  console.log('[JRFD-sidepanel] extractJobText called, tab:', tab?.id, tab?.url);
 
   try {
+    console.log('[JRFD-sidepanel] Trying content script messaging (chrome.tabs.sendMessage)...');
     const response = await chrome.tabs.sendMessage(tab.id, { action: 'extractJobText' });
+    console.log('[JRFD-sidepanel] Content script responded:', response ? 'yes' : 'no', '- text length:', response?.text?.length || 0);
     if (response && response.text && response.text.length > 100) {
+      console.log('[JRFD-sidepanel] SUCCESS via content script, first 300 chars:', response.text.substring(0, 300));
       return response.text;
     }
+    console.log('[JRFD-sidepanel] Content script response too short or empty, falling through to executeScript');
   } catch (e) {
-    console.log('Content script not available, using executeScript fallback');
+    console.log('[JRFD-sidepanel] Content script not available:', e.message, '- using executeScript fallback');
   }
 
   try {
+    console.log('[JRFD-sidepanel] Trying executeScript fallback...');
     const results = await chrome.scripting.executeScript({
       target: { tabId: tab.id },
       func: () => {
+        console.log('[JRFD-executeScript] Running in page context, URL:', window.location.href);
+        console.log('[JRFD-executeScript] document.body.innerText length:', document.body?.innerText?.length || 0);
         const markers = [
           'About the job', 'About the role', 'About this role', 'About this position',
           'Job description', 'Job Description', 'Job summary', 'Job Summary',
@@ -251,9 +259,14 @@ async function extractJobText() {
       },
     });
 
-    return results[0]?.result || null;
+    const extractedText = results[0]?.result || null;
+    console.log('[JRFD-sidepanel] executeScript result:', extractedText ? 'got text, length: ' + extractedText.length : 'null');
+    if (extractedText) {
+      console.log('[JRFD-sidepanel] executeScript first 300 chars:', extractedText.substring(0, 300));
+    }
+    return extractedText;
   } catch (e) {
-    console.error('executeScript also failed:', e);
+    console.error('[JRFD-sidepanel] executeScript FAILED:', e.message);
     return null;
   }
 }
