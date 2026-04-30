@@ -505,24 +505,35 @@ activateBtn.addEventListener('click', activateLicense);
 scanThisPageBtn.addEventListener('click', async () => {
   // Use cached tab info so chrome.permissions.request() is the first async call
   // (preserves user gesture context)
-  if (!currentTabUrl || !currentTabId) return;
+  console.log('[JRFD] Scan This Page clicked, tabId:', currentTabId, 'url:', currentTabUrl);
+  if (!currentTabUrl || !currentTabId) {
+    console.log('[JRFD] No cached tab info');
+    return;
+  }
 
   try {
     const origin = new URL(currentTabUrl).origin + '/*';
+    console.log('[JRFD] Requesting permission for:', origin);
     const granted = await chrome.permissions.request({ origins: [origin] });
+    console.log('[JRFD] Permission result:', granted);
     if (!granted) return;
 
     // Inject content script into the page
+    console.log('[JRFD] Injecting content.js into tab', currentTabId);
     await chrome.scripting.executeScript({
       target: { tabId: currentTabId, frameIds: [0] },
       files: ['src/content.js'],
     });
+    console.log('[JRFD] Content script injected');
 
     // Brief delay for content script to initialize, then scan
-    await new Promise(r => setTimeout(r, 150));
+    await new Promise(r => setTimeout(r, 200));
+    console.log('[JRFD] Calling scanJob()');
     scanJob();
   } catch (e) {
-    // Permission denied or injection failed
+    console.error('[JRFD] Scan This Page failed:', e);
+    // Show no-job state again so the user can retry
+    showState(stateNoJob);
   }
 });
 
