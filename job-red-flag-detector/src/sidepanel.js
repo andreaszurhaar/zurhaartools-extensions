@@ -22,6 +22,23 @@ let isScanning = false;
 let currentTabId = null;
 let currentTabUrl = null;
 
+// Keep current tab info up-to-date for "Scan This Page" (needs sync access)
+chrome.tabs.onActivated.addListener(async () => {
+  try {
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    if (tab) {
+      currentTabId = tab.id;
+      currentTabUrl = tab.url;
+    }
+  } catch (e) { /* ignore */ }
+});
+
+chrome.tabs.onUpdated.addListener((tabId, changeInfo) => {
+  if (tabId === currentTabId && changeInfo.url) {
+    currentTabUrl = changeInfo.url;
+  }
+});
+
 // ── License key helpers ──
 
 function getLicenseKey() {
@@ -356,8 +373,6 @@ async function scanJob() {
     });
 
     const data = await response.json();
-    console.log('[JRFD] API status:', response.status, 'data:', JSON.stringify(data, null, 2));
-
     if (response.status === 401 && (data.error === 'license_required' || data.error === 'invalid_key')) {
       await clearLicenseKey();
       updateCreditsDisplay(null);
@@ -398,7 +413,6 @@ async function scanJob() {
 
     renderResults(data);
   } catch (err) {
-    console.error('Scan error:', err);
     document.getElementById('error-message').textContent =
       err.message || 'Something went wrong. Please try again.';
     showState(stateError);
@@ -505,34 +519,22 @@ activateBtn.addEventListener('click', activateLicense);
 scanThisPageBtn.addEventListener('click', async () => {
   // Use cached tab info so chrome.permissions.request() is the first async call
   // (preserves user gesture context)
-  console.log('[JRFD] Scan This Page clicked, tabId:', currentTabId, 'url:', currentTabUrl);
-  if (!currentTabUrl || !currentTabId) {
-    console.log('[JRFD] No cached tab info');
-    return;
-  }
+  if (!currentTabUrl || !currentTabId) return;
 
   try {
     const origin = new URL(currentTabUrl).origin + '/*';
-    console.log('[JRFD] Requesting permission for:', origin);
     const granted = await chrome.permissions.request({ origins: [origin] });
-    console.log('[JRFD] Permission result:', granted);
     if (!granted) return;
 
-    // Inject content script into the page
-    console.log('[JRFD] Injecting content.js into tab', currentTabId);
     await chrome.scripting.executeScript({
       target: { tabId: currentTabId, frameIds: [0] },
       files: ['src/content.js'],
     });
-    console.log('[JRFD] Content script injected');
 
     // Brief delay for content script to initialize, then scan
     await new Promise(r => setTimeout(r, 200));
-    console.log('[JRFD] Calling scanJob()');
     scanJob();
   } catch (e) {
-    console.error('[JRFD] Scan This Page failed:', e);
-    // Show no-job state again so the user can retry
     showState(stateNoJob);
   }
 });
