@@ -146,7 +146,9 @@ async function extractJobText() {
           '.jobs-description__content',
           '.jobs-box__html-content',
           '.jobs-description-content__text',
+          '.jobs-description',
           '[class*="jobs-description"]',
+          '[class*="job-details-about-the-job"]',
           '[class*="job-description"]',
           '[class*="jobDescription"]',
           '[id*="job-description"]',
@@ -168,6 +170,7 @@ async function extractJobText() {
           'About the job', 'Over de functie', 'Job summary', 'Job description',
           'Job Description', 'Functieomschrijving', 'Role Description',
           'About this role', 'About the role', 'The Role', 'What you\'ll do',
+          'Key Responsibilities',
         ];
         for (const marker of markers) {
           const idx = bodyText.indexOf(marker);
@@ -182,13 +185,14 @@ async function extractJobText() {
           'experience', 'requirements', 'qualifications', 'responsibilities',
           'salary', 'benefits', 'skills', 'apply', 'role', 'position',
           'ervaring', 'functie', 'verantwoordelijkheden', 'salaris',
+          'key responsibilities', 'what you',
         ];
         let best = '';
         let bestScore = 0;
 
         candidates.forEach((el) => {
           const text = el.innerText.trim();
-          if (text.length > 200 && text.length < 15000) {
+          if (text.length > 200 && text.length < 20000) {
             const score = jobKeywords.filter(kw => text.toLowerCase().includes(kw)).length;
             if (score > bestScore) {
               bestScore = score;
@@ -196,6 +200,14 @@ async function extractJobText() {
             }
           }
         });
+
+        if (best.length > 8000) {
+          for (const marker of markers) {
+            const idx = best.indexOf(marker);
+            if (idx !== -1) return best.substring(idx, idx + 8000);
+          }
+          return best.substring(0, 8000);
+        }
 
         return best.length > 200 ? best : null;
       },

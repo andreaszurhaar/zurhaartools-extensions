@@ -28,16 +28,18 @@ function extractJobText() {
 }
 
 function extractLinkedIn() {
-  // Debug: log what we can find to help troubleshoot
   console.log('[JRFD] Starting LinkedIn extraction...');
 
-  // Strategy 1: Known LinkedIn selectors (most reliable when they work)
+  // Strategy 1: Known LinkedIn selectors (updated for current DOM)
   const selectors = [
     '#job-details',
     '.jobs-description__content',
     '.jobs-box__html-content',
     '.jobs-description-content__text',
+    '.jobs-description',
     '[class*="jobs-description"]',
+    '[class*="job-details-about-the-job"]',
+    'article[class*="jobs"]',
   ];
 
   for (const selector of selectors) {
@@ -48,56 +50,54 @@ function extractLinkedIn() {
     }
   }
 
-  // Strategy 2: Find "About the job" text node and collect all text that follows it
-  // This works by finding the heading, then collecting text from ALL subsequent elements
-  const headings = ['about the job', 'over de functie'];
-  const allElements = document.querySelectorAll('*');
+  // Strategy 2: Find any element containing "About the job" as visible text
+  // Use TreeWalker to find the text node, then walk up to the job content container
+  const headingTexts = ['about the job', 'over de functie'];
+  const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, null);
+  let node;
+  while ((node = walker.nextNode())) {
+    const trimmed = node.textContent.trim().toLowerCase();
+    if (!headingTexts.some(h => trimmed === h)) continue;
 
-  for (const el of allElements) {
-    // Check only direct text content (not children) to find the heading element precisely
-    const directText = Array.from(el.childNodes)
-      .filter(n => n.nodeType === Node.TEXT_NODE)
-      .map(n => n.textContent.trim().toLowerCase())
-      .join('');
+    console.log('[JRFD] Found heading text node in:', node.parentElement?.tagName, node.parentElement?.className);
 
-    if (headings.includes(directText)) {
-      console.log('[JRFD] Found heading element:', el.tagName, el.className);
+    // Walk up from the heading to find the job description container
+    let container = node.parentElement;
+    for (let i = 0; i < 15; i++) {
+      if (!container || container === document.body) break;
+      const text = container.innerText.trim();
 
-      // Collect text from this element and everything after it in the same scroll container
-      let parent = el.parentElement;
-      // Walk up to find a reasonable container (not the body)
-      for (let i = 0; i < 10; i++) {
-        if (!parent || parent === document.body) break;
-        const text = parent.innerText.trim();
-        console.log('[JRFD] Checking parent:', parent.tagName, parent.className?.substring(0, 50), '- length:', text.length);
-
-        // Look for a container that has the job description but isn't the whole page
-        if (text.length > 300 && text.length < 12000) {
-          // Make sure it actually contains job-related content, not just UI
-          const hasJobContent = text.includes('About the job') || text.includes('Over de functie');
-          const hasDetails = text.length > 500;
-          if (hasJobContent && hasDetails) {
-            console.log('[JRFD] Using parent container - length:', text.length);
-            return text;
-          }
+      // We want a container that holds the job content but not the entire page
+      // LinkedIn typically wraps the description in a section/div of 500-20000 chars
+      if (text.length > 500 && text.length < 20000) {
+        // Verify it has actual job content keywords, not just UI
+        const lower = text.toLowerCase();
+        const jobSignals = ['responsibilities', 'requirements', 'qualifications',
+          'experience', 'skills', 'what you', 'key responsibilities',
+          'verantwoordelijkheden', 'ervaring', 'functie-eisen'];
+        const signalCount = jobSignals.filter(s => lower.includes(s)).length;
+        if (signalCount >= 2) {
+          console.log('[JRFD] Using container:', container.tagName, '- length:', text.length, '- signals:', signalCount);
+          return text;
         }
-        parent = parent.parentElement;
       }
+      container = container.parentElement;
+    }
 
-      // If walking up didn't work, just grab everything from the heading onwards in the page text
-      const pageText = document.body.innerText;
-      const headingIdx = pageText.toLowerCase().indexOf(directText);
-      if (headingIdx !== -1) {
-        const extracted = pageText.substring(headingIdx, headingIdx + 8000);
-        console.log('[JRFD] Using page text from heading - length:', extracted.length);
-        return extracted;
-      }
+    // Fallback: grab text from the heading onward in body.innerText
+    const pageText = document.body.innerText;
+    const headingIdx = pageText.toLowerCase().indexOf(trimmed);
+    if (headingIdx !== -1) {
+      const extracted = pageText.substring(headingIdx, headingIdx + 8000);
+      console.log('[JRFD] Using page text from heading - length:', extracted.length);
+      return extracted;
     }
   }
 
-  // Strategy 3: Full page text search for markers (broadest approach)
+  // Strategy 3: Full page text search for markers
   const bodyText = document.body.innerText;
-  const markers = ['About the job', 'Over de functie'];
+  const markers = ['About the job', 'Over de functie', 'Job description',
+    'Key Responsibilities', 'About this role', 'About the role'];
   for (const marker of markers) {
     const idx = bodyText.indexOf(marker);
     if (idx !== -1) {
@@ -169,14 +169,14 @@ function extractGeneric() {
 }
 
 function extractByKeywordScore() {
-  const candidates = document.querySelectorAll('div, section, article');
-  const jobKeywords = ['experience', 'requirements', 'qualifications', 'responsibilities', 'salary', 'benefits', 'skills', 'role', 'position', 'apply', 'ervaring', 'functie', 'verantwoordelijkheden', 'salaris'];
+  const candidates = document.querySelectorAll('div, section, article, main');
+  const jobKeywords = ['experience', 'requirements', 'qualifications', 'responsibilities', 'salary', 'benefits', 'skills', 'role', 'position', 'apply', 'ervaring', 'functie', 'verantwoordelijkheden', 'salaris', 'key responsibilities', 'what you'];
   let bestCandidate = '';
   let bestScore = 0;
 
   candidates.forEach((el) => {
     const text = el.innerText.trim();
-    if (text.length > 300 && text.length < 10000) {
+    if (text.length > 300 && text.length < 20000) {
       const score = jobKeywords.filter(kw => text.toLowerCase().includes(kw)).length;
       if (score > bestScore) {
         bestScore = score;
@@ -184,6 +184,18 @@ function extractByKeywordScore() {
       }
     }
   });
+
+  // If the best candidate is very long, try to trim from a known heading
+  if (bestCandidate.length > 8000) {
+    const markers = ['About the job', 'Job description', 'Key Responsibilities', 'About this role'];
+    for (const marker of markers) {
+      const idx = bestCandidate.indexOf(marker);
+      if (idx !== -1) {
+        return bestCandidate.substring(idx, idx + 8000);
+      }
+    }
+    return bestCandidate.substring(0, 8000);
+  }
 
   return bestCandidate.length > 200 ? bestCandidate : null;
 }
