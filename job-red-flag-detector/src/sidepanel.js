@@ -14,6 +14,7 @@ const getStartedBtn = document.getElementById('get-started-btn');
 const buyMoreBtn = document.getElementById('buy-more-btn');
 const changeKeyBtn = document.getElementById('change-key-btn');
 const retryScanBtn = document.getElementById('retry-scan-btn');
+const scanThisPageBtn = document.getElementById('scan-this-page-btn');
 const licenseInput = document.getElementById('license-input');
 const licenseError = document.getElementById('license-error');
 
@@ -494,6 +495,26 @@ rescanBtn.addEventListener('click', scanJob);
 retryBtn.addEventListener('click', scanJob);
 retryScanBtn.addEventListener('click', scanJob);
 activateBtn.addEventListener('click', activateLicense);
+
+scanThisPageBtn.addEventListener('click', async () => {
+  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+  if (!tab) return;
+
+  try {
+    const origin = new URL(tab.url).origin + '/*';
+    const granted = await chrome.permissions.request({ origins: [origin] });
+    if (!granted) return;
+
+    // Ask background to inject content script (it has scripting permission)
+    await chrome.runtime.sendMessage({ action: 'injectContentScript', tabId: tab.id });
+
+    // Brief delay for content script to initialize, then scan
+    await new Promise(r => setTimeout(r, 100));
+    scanJob();
+  } catch (e) {
+    // Permission request failed or tab URL not supported
+  }
+});
 
 licenseInput.addEventListener('keydown', (e) => {
   if (e.key === 'Enter') activateLicense();
