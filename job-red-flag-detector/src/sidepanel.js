@@ -355,32 +355,25 @@ async function scanJob() {
       }),
     });
 
-    if (response.status === 401) {
-      const errData = await response.json();
-      if (errData.error === 'license_required' || errData.error === 'invalid_key') {
-        await clearLicenseKey();
-        updateCreditsDisplay(null);
-        showState(stateWelcome);
-        return;
-      }
+    const data = await response.json();
+    console.log('[JRFD] API status:', response.status, 'data:', JSON.stringify(data, null, 2));
+
+    if (response.status === 401 && (data.error === 'license_required' || data.error === 'invalid_key')) {
+      await clearLicenseKey();
+      updateCreditsDisplay(null);
+      showState(stateWelcome);
+      return;
     }
 
-    if (response.status === 403) {
-      const errData = await response.json();
-      if (errData.error === 'no_credits') {
-        updateCreditsDisplay(0);
-        showState(stateNoCredits);
-        return;
-      }
+    if (response.status === 403 && data.error === 'no_credits') {
+      updateCreditsDisplay(0);
+      showState(stateNoCredits);
+      return;
     }
 
     if (!response.ok) {
       throw new Error(`API error: ${response.status}`);
     }
-
-    const data = await response.json();
-    console.log('[JRFD-sidepanel] API response status:', response.status);
-    console.log('[JRFD-sidepanel] API response data:', JSON.stringify(data, null, 2));
 
     if (data.error && data.error === 'Could not parse structured response') {
       if (data.raw) {
@@ -510,40 +503,26 @@ retryScanBtn.addEventListener('click', scanJob);
 activateBtn.addEventListener('click', activateLicense);
 
 scanThisPageBtn.addEventListener('click', async () => {
-  // Use cached tab info so chrome.permissions.request() is called
-  // synchronously within the user gesture (no prior awaits)
-  if (!currentTabUrl || !currentTabId) {
-    console.log('[JRFD-sidepanel] No cached tab info, aborting');
-    return;
-  }
+  // Use cached tab info so chrome.permissions.request() is the first async call
+  // (preserves user gesture context)
+  if (!currentTabUrl || !currentTabId) return;
 
   try {
     const origin = new URL(currentTabUrl).origin + '/*';
-    console.log('[JRFD-sidepanel] Requesting permission for:', origin);
     const granted = await chrome.permissions.request({ origins: [origin] });
-    console.log('[JRFD-sidepanel] Permission granted:', granted);
     if (!granted) return;
 
-    // Inject content script directly from side panel
-    console.log('[JRFD-sidepanel] Injecting content script into tab', currentTabId);
-    try {
-      await chrome.scripting.executeScript({
-        target: { tabId: currentTabId, frameIds: [0] },
-        files: ['src/content.js'],
-      });
-      console.log('[JRFD-sidepanel] Content script injected successfully');
-    } catch (injErr) {
-      console.log('[JRFD-sidepanel] Direct injection failed, trying via background:', injErr.message);
-      await chrome.runtime.sendMessage({ action: 'injectContentScript', tabId: currentTabId });
-      console.log('[JRFD-sidepanel] Background injection done');
-    }
+    // Inject content script into the page
+    await chrome.scripting.executeScript({
+      target: { tabId: currentTabId, frameIds: [0] },
+      files: ['src/content.js'],
+    });
 
     // Brief delay for content script to initialize, then scan
     await new Promise(r => setTimeout(r, 150));
-    console.log('[JRFD-sidepanel] Starting scanJob()');
     scanJob();
   } catch (e) {
-    console.log('[JRFD-sidepanel] Scan This Page error:', e.message);
+    // Permission denied or injection failed
   }
 });
 

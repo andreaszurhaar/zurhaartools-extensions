@@ -2,25 +2,24 @@
 // Architecture: content-based extraction that works on ALL sites
 // Supports shadow DOM (LinkedIn renders content inside shadow roots)
 //
-// May be injected twice: once via manifest matches, once via background.js
-// executeScript. Guard against duplicate registration.
+// May be injected twice: once via manifest matches, once via "Scan This Page"
+// optional permissions flow. Guard against duplicate registration.
 
-// Guard against duplicate injection (manifest matches + background.js executeScript)
 if (window.__jrfd_loaded) {
-  // Already loaded (manifest matches + background.js executeScript) — skip
+  // Already loaded — skip
 }
 
 if (!window.__jrfd_loaded) {
 window.__jrfd_loaded = true;
 
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-  if (request.action === 'extractJobText') {
-    // Only extract from the main frame
-    if (window.self !== window.top) return;
+  if (request.action !== 'extractJobText') return false;
 
-    const text = extractJobText();
-    sendResponse({ text });
-  }
+  // Sub-frames must not respond — return false so Chrome doesn't hold the channel open
+  if (window.self !== window.top) return false;
+
+  const text = extractJobText();
+  sendResponse({ text });
   return true;
 });
 
