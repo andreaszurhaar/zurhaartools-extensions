@@ -19,6 +19,8 @@ const licenseInput = document.getElementById('license-input');
 const licenseError = document.getElementById('license-error');
 
 let isScanning = false;
+let currentTabId = null;
+let currentTabUrl = null;
 
 // ── License key helpers ──
 
@@ -453,6 +455,15 @@ async function activateLicense() {
 // ── Initialization ──
 
 async function init() {
+  // Cache current tab info for "Scan This Page" button (needs sync access)
+  try {
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    if (tab) {
+      currentTabId = tab.id;
+      currentTabUrl = tab.url;
+    }
+  } catch (e) { /* ignore */ }
+
   // Set pricing URLs
   getStartedBtn.href = CONFIG.PRICING_URL;
   buyMoreBtn.href = CONFIG.PRICING_URL;
@@ -497,16 +508,17 @@ retryScanBtn.addEventListener('click', scanJob);
 activateBtn.addEventListener('click', activateLicense);
 
 scanThisPageBtn.addEventListener('click', async () => {
-  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-  if (!tab) return;
+  // Use cached tab info so chrome.permissions.request() is called
+  // synchronously within the user gesture (no prior awaits)
+  if (!currentTabUrl || !currentTabId) return;
 
   try {
-    const origin = new URL(tab.url).origin + '/*';
+    const origin = new URL(currentTabUrl).origin + '/*';
     const granted = await chrome.permissions.request({ origins: [origin] });
     if (!granted) return;
 
-    // Ask background to inject content script (it has scripting permission)
-    await chrome.runtime.sendMessage({ action: 'injectContentScript', tabId: tab.id });
+    // Ask background to inject content script
+    await chrome.runtime.sendMessage({ action: 'injectContentScript', tabId: currentTabId });
 
     // Brief delay for content script to initialize, then scan
     await new Promise(r => setTimeout(r, 100));
