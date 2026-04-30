@@ -2,11 +2,17 @@
 // Architecture: content-based extraction that works on ALL sites
 // Supports shadow DOM (LinkedIn renders content inside shadow roots)
 //
-// Strategies:
-// 1. Quick-win selectors (optimization, not required)
-// 2. Marker-based: find job headings, walk up to container
-// 3. Keyword density scoring: find best job-content block
-// 4. Generous fallback: grab main content area
+// May be injected twice: once via manifest matches, once via background.js
+// executeScript. Guard against duplicate registration.
+
+// Guard against duplicate injection (manifest matches + background.js executeScript)
+if (window.__jrfd_loaded) {
+  console.log('[JRFD] Content script already loaded, skipping');
+  // Still need to end the script — throw is too harsh, so we use an IIFE wrapper below
+}
+
+if (!window.__jrfd_loaded) {
+window.__jrfd_loaded = true;
 
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.action === 'extractJobText') {
@@ -357,3 +363,5 @@ function cleanText(text) {
 }
 
 console.log('[Job Red Flag Detector] Content script loaded on', window.location.hostname);
+
+} // end duplicate-injection guard
