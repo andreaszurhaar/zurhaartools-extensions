@@ -16,9 +16,7 @@ chrome.action.onClicked.addListener(async (tab) => {
       target: { tabId: tab.id, frameIds: [0] },
       files: ['src/content.js'],
     });
-    console.log('[JRFD-bg] Content script injected into tab', tab.id, tab.url);
   } catch (e) {
     // May fail on chrome:// pages, extensions pages, etc. — that's fine
-    console.log('[JRFD-bg] Could not inject content script:', e.message);
   }
 });
