@@ -517,17 +517,19 @@ retryScanBtn.addEventListener('click', scanJob);
 activateBtn.addEventListener('click', activateLicense);
 
 scanThisPageBtn.addEventListener('click', async () => {
-  // Use cached tab info so chrome.permissions.request() is the first async call
-  // (preserves user gesture context)
-  if (!currentTabUrl || !currentTabId) return;
-
   try {
-    const origin = new URL(currentTabUrl).origin + '/*';
-    const granted = await chrome.permissions.request({ origins: [origin] });
+    // Request broad optional permission — must be the first async call to preserve
+    // user gesture context. We can't request per-origin because tab.url is undefined
+    // without the tabs permission.
+    const granted = await chrome.permissions.request({ origins: ['<all_urls>'] });
     if (!granted) return;
 
+    // Now get the current tab (we can read tab.id without tabs permission)
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    if (!tab || !tab.id) return;
+
     await chrome.scripting.executeScript({
-      target: { tabId: currentTabId, frameIds: [0] },
+      target: { tabId: tab.id, frameIds: [0] },
       files: ['src/content.js'],
     });
 
