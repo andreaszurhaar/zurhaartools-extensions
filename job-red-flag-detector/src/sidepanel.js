@@ -146,17 +146,8 @@ async function extractJobText() {
     const results = await chrome.scripting.executeScript({
       target: { tabId: tab.id, frameIds: [0] },
       func: () => {
-        console.log('[JRFD-executeScript] Running in page context');
-        console.log('[JRFD-executeScript] URL:', window.location.href);
-        console.log('[JRFD-executeScript] self===top:', window.self === window.top);
-        console.log('[JRFD-executeScript] body.innerText length:', document.body?.innerText?.length || 0);
-        console.log('[JRFD-executeScript] body.innerText FULL (if <100):', document.body?.innerText?.length < 100 ? JSON.stringify(document.body?.innerText) : '(too long, first 300: ' + document.body?.innerText?.substring(0, 300) + ')');
-        console.log('[JRFD-executeScript] body.innerHTML length:', document.body?.innerHTML?.length || 0);
-        console.log('[JRFD-executeScript] document.title:', document.title);
-        // Check for shadow DOM
-        let shadowCount = 0;
-        document.querySelectorAll('*').forEach(el => { if (el.shadowRoot) shadowCount++; });
-        console.log('[JRFD-executeScript] Elements with shadowRoot:', shadowCount);
+        console.log('[JRFD-exec] Running, URL:', window.location.href);
+        const noiseSelector = 'nav, header, footer, aside, [role="navigation"], [role="banner"], [role="contentinfo"]';
         const markers = [
           'About the job', 'About the role', 'About this role', 'About this position',
           'Job description', 'Job Description', 'Job summary', 'Job Summary',
@@ -173,12 +164,64 @@ async function extractJobText() {
           'ervaring', 'functie', 'verantwoordelijkheden', 'salaris',
           'erfahrung', 'anforderungen', 'qualifikationen', 'gehalt',
         ];
-        const noiseSelector = 'nav, header, footer, aside, [role="navigation"], [role="banner"], [role="contentinfo"]';
 
-        function getCleanBodyText() {
-          const clone = document.body.cloneNode(true);
-          clone.querySelectorAll(noiseSelector).forEach(el => el.remove());
-          return clone.innerText.trim();
+        // Shadow DOM helpers
+        function getDeepText(root) {
+          let text = '';
+          const walk = (node) => {
+            if (node.nodeType === Node.TEXT_NODE) {
+              const t = node.textContent.trim();
+              if (t) text += t + '\n';
+              return;
+            }
+            if (node.nodeType === Node.ELEMENT_NODE) {
+              if (node.matches && node.matches(noiseSelector)) return;
+              if (node.shadowRoot) { walk(node.shadowRoot); return; }
+            }
+            const ch = node.childNodes;
+            for (let i = 0; i < ch.length; i++) walk(ch[i]);
+          };
+          walk(root);
+          return text;
+        }
+
+        function deepQuerySelectorAll(root, sel) {
+          const results = [];
+          const collect = (node) => {
+            if (node.querySelectorAll) {
+              const found = node.querySelectorAll(sel);
+              for (let i = 0; i < found.length; i++) results.push(found[i]);
+              const all = node.querySelectorAll('*');
+              for (let i = 0; i < all.length; i++) {
+                if (all[i].shadowRoot) collect(all[i].shadowRoot);
+              }
+            }
+          };
+          collect(root);
+          return results;
+        }
+
+        function deepFindTextNodes(root) {
+          const nodes = [];
+          const walk = (node) => {
+            if (node.nodeType === Node.TEXT_NODE) { nodes.push(node); return; }
+            if (node.nodeType === Node.ELEMENT_NODE && node.shadowRoot) { walk(node.shadowRoot); return; }
+            const ch = node.childNodes;
+            for (let i = 0; i < ch.length; i++) walk(ch[i]);
+          };
+          walk(root);
+          return nodes;
+        }
+
+        function getElementDeepText(el) {
+          let hasShadow = !!el.shadowRoot;
+          if (!hasShadow) {
+            const all = el.querySelectorAll('*');
+            for (let i = 0; i < all.length; i++) {
+              if (all[i].shadowRoot) { hasShadow = true; break; }
+            }
+          }
+          return hasShadow ? getDeepText(el) : (el.innerText?.trim() || '');
         }
 
         function trimResult(text) {
@@ -186,7 +229,10 @@ async function extractJobText() {
           return cleaned.length > 10000 ? cleaned.substring(0, 10000) : cleaned;
         }
 
-        // Strategy 1: Quick-win selectors
+        const deepText = getDeepText(document.body);
+        console.log('[JRFD-exec] Deep text length:', deepText.length);
+
+        // Strategy 1: Selectors
         const selectors = [
           '#job-details', '#jobDescriptionText', '.jobDescriptionContent',
           '[class*="jobs-description"]', '[class*="job-description"]',
@@ -194,75 +240,76 @@ async function extractJobText() {
           '[id*="job-description"]', '[id*="jobDescription"]',
         ];
         for (const sel of selectors) {
-          const el = document.querySelector(sel);
-          if (el && el.innerText.trim().length > 100) {
-            return trimResult(el.innerText.trim());
+          const els = deepQuerySelectorAll(document.body, sel);
+          for (const el of els) {
+            const text = getElementDeepText(el);
+            if (text.length > 100) return trimResult(text);
           }
         }
 
-        // Strategy 2: Marker-based — find heading text, walk up to container
-        const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, null);
-        let textNode;
-        while ((textNode = walker.nextNode())) {
-          const trimmed = textNode.textContent.trim();
+        // Strategy 2: Markers via deep text nodes
+        const textNodes = deepFindTextNodes(document.body);
+        for (const tn of textNodes) {
+          const trimmed = tn.textContent.trim();
           if (trimmed.length < 5 || trimmed.length > 50) continue;
           const matched = markers.find(m => trimmed.toLowerCase() === m.toLowerCase());
           if (!matched) continue;
 
-          let container = textNode.parentElement;
-          for (let i = 0; i < 20; i++) {
+          let container = tn.parentElement;
+          for (let i = 0; i < 25; i++) {
             if (!container || container === document.body) break;
-            if (container.matches && container.matches(noiseSelector)) {
-              container = container.parentElement;
-              continue;
+            if (container.nodeType === Node.DOCUMENT_FRAGMENT_NODE && container.host) {
+              container = container.host; continue;
             }
-            const text = container.innerText.trim();
+            if (container.matches && container.matches(noiseSelector)) {
+              container = container.parentNode; continue;
+            }
+            const text = getElementDeepText(container);
             if (text.length > 500 && text.length < 30000) {
               const lower = text.toLowerCase();
               const signals = jobKeywords.filter(kw => lower.includes(kw)).length;
               if (signals >= 2) return trimResult(text);
             }
-            container = container.parentElement;
+            container = container.parentNode;
           }
 
-          // Fallback: grab from body text at the marker
-          const bodyText = getCleanBodyText();
-          const idx = bodyText.indexOf(matched);
-          if (idx !== -1) return trimResult(bodyText.substring(idx));
-          const idxLower = bodyText.toLowerCase().indexOf(matched.toLowerCase());
-          if (idxLower !== -1) return trimResult(bodyText.substring(idxLower));
+          const idx = deepText.indexOf(matched);
+          if (idx !== -1) return trimResult(deepText.substring(idx, idx + 10000));
+          const idxL = deepText.toLowerCase().indexOf(matched.toLowerCase());
+          if (idxL !== -1) return trimResult(deepText.substring(idxL, idxL + 10000));
         }
 
-        // Marker plain-text fallback
-        const bodyText = getCleanBodyText();
+        // Deep text marker fallback
         for (const marker of markers) {
-          const idx = bodyText.indexOf(marker);
-          if (idx !== -1) return trimResult(bodyText.substring(idx));
+          const idx = deepText.indexOf(marker);
+          if (idx !== -1) return trimResult(deepText.substring(idx, idx + 10000));
         }
 
-        // Strategy 3: Keyword density scoring
-        const candidates = document.querySelectorAll('div, section, article, main, [role="main"]');
-        let best = '';
-        let bestScore = 0;
-        candidates.forEach((el) => {
-          if (el.closest(noiseSelector)) return;
-          const text = el.innerText.trim();
-          if (text.length < 300) return;
+        // Strategy 3: Keyword scoring
+        const candidates = deepQuerySelectorAll(document.body, 'div, section, article, main, [role="main"]');
+        let best = '', bestScore = 0;
+        for (const el of candidates) {
+          if (el.closest && el.closest(noiseSelector)) continue;
+          const text = getElementDeepText(el);
+          if (text.length < 300) continue;
           const lower = text.toLowerCase();
           const score = jobKeywords.filter(kw => lower.includes(kw)).length * (text.length > 15000 ? 0.7 : 1);
           if (score > bestScore) { bestScore = score; best = text; }
-        });
+        }
         if (bestScore >= 3 && best.length >= 300) {
           if (best.length > 10000) {
-            for (const m of markers) { const i = best.indexOf(m); if (i !== -1) return trimResult(best.substring(i)); }
+            for (const m of markers) { const i = best.indexOf(m); if (i !== -1) return trimResult(best.substring(i, i + 10000)); }
           }
           return trimResult(best);
         }
 
-        // Strategy 4: Generous fallback
-        const main = document.querySelector('main, [role="main"], article');
-        if (main && main.innerText.trim().length > 300) return trimResult(main.innerText.trim());
-        if (bodyText.length > 300) return trimResult(bodyText);
+        // Strategy 4: Fallback
+        const mains = deepQuerySelectorAll(document.body, 'main, [role="main"], article');
+        for (const m of mains) {
+          const text = getElementDeepText(m);
+          if (text.length > 300) return trimResult(text);
+        }
+        if (deepText.length > 300) return trimResult(deepText);
 
         return null;
       },
