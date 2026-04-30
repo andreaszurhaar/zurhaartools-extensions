@@ -165,6 +165,9 @@ async function extractJobText() {
           'erfahrung', 'anforderungen', 'qualifikationen', 'gehalt',
         ];
 
+        // Tags whose text content is code/metadata, not visible text
+        const invisibleTags = new Set(['SCRIPT', 'STYLE', 'NOSCRIPT', 'TEMPLATE', 'SVG', 'IFRAME']);
+
         // Shadow DOM helpers
         function getDeepText(root) {
           let text = '';
@@ -175,6 +178,7 @@ async function extractJobText() {
               return;
             }
             if (node.nodeType === Node.ELEMENT_NODE) {
+              if (invisibleTags.has(node.tagName)) return;
               if (node.matches && node.matches(noiseSelector)) return;
               if (node.shadowRoot) { walk(node.shadowRoot); return; }
             }
@@ -205,7 +209,10 @@ async function extractJobText() {
           const nodes = [];
           const walk = (node) => {
             if (node.nodeType === Node.TEXT_NODE) { nodes.push(node); return; }
-            if (node.nodeType === Node.ELEMENT_NODE && node.shadowRoot) { walk(node.shadowRoot); return; }
+            if (node.nodeType === Node.ELEMENT_NODE) {
+              if (invisibleTags.has(node.tagName)) return;
+              if (node.shadowRoot) { walk(node.shadowRoot); return; }
+            }
             const ch = node.childNodes;
             for (let i = 0; i < ch.length; i++) walk(ch[i]);
           };

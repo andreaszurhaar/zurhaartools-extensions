@@ -58,6 +58,9 @@ const JOB_KEYWORDS = [
 
 const NOISE_SELECTORS = 'nav, header, footer, aside, [role="navigation"], [role="banner"], [role="contentinfo"], [aria-label="navigation"]';
 
+// Tags whose text content is code/metadata, not visible page text
+const INVISIBLE_TAGS = new Set(['SCRIPT', 'STYLE', 'NOSCRIPT', 'TEMPLATE', 'SVG', 'IFRAME']);
+
 // ── Shadow DOM helpers ──
 
 // Recursively extract all visible text, descending into shadow roots
@@ -70,6 +73,8 @@ function getDeepText(root) {
       return;
     }
     if (node.nodeType === Node.ELEMENT_NODE) {
+      // Skip script, style, and other non-visible elements
+      if (INVISIBLE_TAGS.has(node.tagName)) return;
       // Skip noise elements
       if (node.matches && node.matches(NOISE_SELECTORS)) return;
       // Descend into shadow root if present
@@ -110,7 +115,7 @@ function deepQuerySelectorAll(root, selector) {
   return results;
 }
 
-// Find text nodes across shadow boundaries
+// Find text nodes across shadow boundaries (skips script/style)
 function deepFindTextNodes(root) {
   const nodes = [];
   const walk = (node) => {
@@ -119,6 +124,7 @@ function deepFindTextNodes(root) {
       return;
     }
     if (node.nodeType === Node.ELEMENT_NODE) {
+      if (INVISIBLE_TAGS.has(node.tagName)) return;
       if (node.shadowRoot) {
         walk(node.shadowRoot);
         return;
