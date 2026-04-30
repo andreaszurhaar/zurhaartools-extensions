@@ -140,76 +140,114 @@ async function extractJobText() {
     const results = await chrome.scripting.executeScript({
       target: { tabId: tab.id },
       func: () => {
-        // Strategy 1: Known job site selectors
-        const selectors = [
-          '#job-details',
-          '.jobs-description__content',
-          '.jobs-box__html-content',
-          '.jobs-description-content__text',
-          '.jobs-description',
-          '[class*="jobs-description"]',
-          '[class*="job-details-about-the-job"]',
-          '[class*="job-description"]',
-          '[class*="jobDescription"]',
-          '[id*="job-description"]',
-          '[id*="jobDescription"]',
-          '#jobDescriptionText',
-          '.jobDescriptionContent',
-        ];
-
-        for (const selector of selectors) {
-          const el = document.querySelector(selector);
-          if (el && el.innerText.trim().length > 100) {
-            return el.innerText.trim();
-          }
-        }
-
-        // Strategy 2: Find job content markers in page text
-        const bodyText = document.body.innerText;
         const markers = [
-          'About the job', 'Over de functie', 'Job summary', 'Job description',
-          'Job Description', 'Functieomschrijving', 'Role Description',
-          'About this role', 'About the role', 'The Role', 'What you\'ll do',
-          'Key Responsibilities',
+          'About the job', 'About the role', 'About this role', 'About this position',
+          'Job description', 'Job Description', 'Job summary', 'Job Summary',
+          'Role Description', 'Position Description',
+          'Key Responsibilities', 'Responsibilities', 'What you\'ll do', 'What you will do',
+          'The Role', 'The Opportunity', 'Your Role',
+          'Over de functie', 'Functieomschrijving', 'Wat ga je doen', 'Jouw rol',
+          'Über die Stelle', 'Stellenbeschreibung', 'Ihre Aufgaben', 'Deine Aufgaben',
         ];
-        for (const marker of markers) {
-          const idx = bodyText.indexOf(marker);
-          if (idx !== -1) {
-            return bodyText.substring(idx, idx + 8000);
-          }
-        }
-
-        // Strategy 3: Find the largest content block that looks like a job posting
-        const candidates = document.querySelectorAll('div, section, article, main');
         const jobKeywords = [
           'experience', 'requirements', 'qualifications', 'responsibilities',
-          'salary', 'benefits', 'skills', 'apply', 'role', 'position',
+          'salary', 'benefits', 'skills', 'apply', 'position', 'candidate',
+          'team', 'company', 'opportunity', 'key responsibilities', 'what you',
           'ervaring', 'functie', 'verantwoordelijkheden', 'salaris',
-          'key responsibilities', 'what you',
+          'erfahrung', 'anforderungen', 'qualifikationen', 'gehalt',
         ];
-        let best = '';
-        let bestScore = 0;
+        const noiseSelector = 'nav, header, footer, aside, [role="navigation"], [role="banner"], [role="contentinfo"]';
 
-        candidates.forEach((el) => {
-          const text = el.innerText.trim();
-          if (text.length > 200 && text.length < 20000) {
-            const score = jobKeywords.filter(kw => text.toLowerCase().includes(kw)).length;
-            if (score > bestScore) {
-              bestScore = score;
-              best = text;
-            }
-          }
-        });
-
-        if (best.length > 8000) {
-          for (const marker of markers) {
-            const idx = best.indexOf(marker);
-            if (idx !== -1) return best.substring(idx, idx + 8000);
-          }
-          return best.substring(0, 8000);
+        function getCleanBodyText() {
+          const clone = document.body.cloneNode(true);
+          clone.querySelectorAll(noiseSelector).forEach(el => el.remove());
+          return clone.innerText.trim();
         }
 
-        return best.length > 200 ? best : null;
+        function trimResult(text) {
+          const cleaned = text.replace(/\n{3,}/g, '\n\n').replace(/[ \t]+/g, ' ').trim();
+          return cleaned.length > 10000 ? cleaned.substring(0, 10000) : cleaned;
+        }
+
+        // Strategy 1: Quick-win selectors
+        const selectors = [
+          '#job-details', '#jobDescriptionText', '.jobDescriptionContent',
+          '[class*="jobs-description"]', '[class*="job-description"]',
+          '[class*="jobDescription"]', '[class*="JobDescription"]',
+          '[id*="job-description"]', '[id*="jobDescription"]',
+        ];
+        for (const sel of selectors) {
+          const el = document.querySelector(sel);
+          if (el && el.innerText.trim().length > 100) {
+            return trimResult(el.innerText.trim());
+          }
+        }
+
+        // Strategy 2: Marker-based — find heading text, walk up to container
+        const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, null);
+        let textNode;
+        while ((textNode = walker.nextNode())) {
+          const trimmed = textNode.textContent.trim();
+          if (trimmed.length < 5 || trimmed.length > 50) continue;
+          const matched = markers.find(m => trimmed.toLowerCase() === m.toLowerCase());
+          if (!matched) continue;
+
+          let container = textNode.parentElement;
+          for (let i = 0; i < 20; i++) {
+            if (!container || container === document.body) break;
+            if (container.matches && container.matches(noiseSelector)) {
+              container = container.parentElement;
+              continue;
+            }
+            const text = container.innerText.trim();
+            if (text.length > 500 && text.length < 30000) {
+              const lower = text.toLowerCase();
+              const signals = jobKeywords.filter(kw => lower.includes(kw)).length;
+              if (signals >= 2) return trimResult(text);
+            }
+            container = container.parentElement;
+          }
+
+          // Fallback: grab from body text at the marker
+          const bodyText = getCleanBodyText();
+          const idx = bodyText.indexOf(matched);
+          if (idx !== -1) return trimResult(bodyText.substring(idx));
+          const idxLower = bodyText.toLowerCase().indexOf(matched.toLowerCase());
+          if (idxLower !== -1) return trimResult(bodyText.substring(idxLower));
+        }
+
+        // Marker plain-text fallback
+        const bodyText = getCleanBodyText();
+        for (const marker of markers) {
+          const idx = bodyText.indexOf(marker);
+          if (idx !== -1) return trimResult(bodyText.substring(idx));
+        }
+
+        // Strategy 3: Keyword density scoring
+        const candidates = document.querySelectorAll('div, section, article, main, [role="main"]');
+        let best = '';
+        let bestScore = 0;
+        candidates.forEach((el) => {
+          if (el.closest(noiseSelector)) return;
+          const text = el.innerText.trim();
+          if (text.length < 300) return;
+          const lower = text.toLowerCase();
+          const score = jobKeywords.filter(kw => lower.includes(kw)).length * (text.length > 15000 ? 0.7 : 1);
+          if (score > bestScore) { bestScore = score; best = text; }
+        });
+        if (bestScore >= 3 && best.length >= 300) {
+          if (best.length > 10000) {
+            for (const m of markers) { const i = best.indexOf(m); if (i !== -1) return trimResult(best.substring(i)); }
+          }
+          return trimResult(best);
+        }
+
+        // Strategy 4: Generous fallback
+        const main = document.querySelector('main, [role="main"], article');
+        if (main && main.innerText.trim().length > 300) return trimResult(main.innerText.trim());
+        if (bodyText.length > 300) return trimResult(bodyText);
+
+        return null;
       },
     });
 
