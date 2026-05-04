@@ -367,14 +367,46 @@ header h1 {
   color: #94a3b8;
 }
 
+/* No job state */
+.no-job-description {
+  font-size: 13px;
+  color: #94a3b8;
+  line-height: 1.5;
+  margin-top: 8px;
+  margin-bottom: 24px;
+}
+
+.no-job-actions {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.no-job-actions .btn-primary {
+  margin-bottom: 0;
+}
+
+.no-job-actions .btn-secondary {
+  margin-top: 16px;
+}
+
+.btn-helper {
+  font-size: 11px;
+  color: #64748b;
+  margin-top: 4px;
+}
+
 /* Error */
 .error-icon {
   font-size: 32px;
-  margin-bottom: 8px;
+  margin-bottom: 12px;
 }
 
 .error-message {
-  font-size: 13px;
+  font-size: 14px;
   color: #ef4444;
+  font-weight: 600;
   margin-bottom: 8px;
 }

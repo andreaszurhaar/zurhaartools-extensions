@@ -99,9 +99,13 @@
     <div id="state-no-job" class="state hidden">
       <p class="error-icon">&#128196;</p>
       <p class="error-message">Not a supported job site</p>
-      <p class="hint">This site isn't in our supported list, but you can still scan it.</p>
-      <button id="scan-this-page-btn" class="btn-primary">Scan This Page</button>
-      <button id="retry-scan-btn" class="btn-secondary">Try Again</button>
+      <p class="no-job-description">This site isn't in our supported list. To scan it, you'll need to grant permission.</p>
+      <div class="no-job-actions">
+        <button id="scan-this-page-btn" class="btn-primary">Allow &amp; Scan</button>
+        <p class="btn-helper">Grants permission to scan any website</p>
+        <button id="retry-scan-btn" class="btn-secondary">Try Again</button>
+        <p class="btn-helper">Use if you're on a supported job board</p>
+      </div>
     </div>
   </div>
 
