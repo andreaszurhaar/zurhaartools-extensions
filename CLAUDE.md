@@ -65,12 +65,43 @@ zip -r ../job-red-flag-detector.zip . -x ".*" "PRODUCT.md" "product-image.html"
 # Upload zip to Chrome Web Store Developer Dashboard
 ```
 
-## Chrome Web Store rules (learned from rejections)
-- **No keyword spam** — don't list specific website names (LinkedIn, Indeed, etc.) in the store description. Use generic terms like "all major job boards"
-- **Justify permissions** — especially `host_permissions: <all_urls>`. Explain it's needed because content exists on many different websites
+## Chrome Web Store policy compliance (MANDATORY)
+
+**Every extension submission MUST be audited against these rules. This is non-negotiable.**
+
+### Permissions policy
+- **Only request permissions that are strictly necessary** — Chrome's policy: "Request access to the narrowest permissions necessary"
+- **Never use `host_permissions: <all_urls>`** — this will be rejected. Use `optional_host_permissions: <all_urls>` instead if broad access is needed
+- **Never request `tabs` permission** unless you specifically need `tab.url` or `tab.title` on non-active tabs. `activeTab` + `scripting` covers most use cases
+- **Use `optional_host_permissions`** for sites not in the content_scripts matches list — user grants on demand via `chrome.permissions.request()`
+- **Scope `content_scripts.matches`** to specific sites the extension targets — list them explicitly
+- **Before adding ANY permission**, verify it's required by testing without it first
+
+### Content policy
+- **No keyword spam** — never list specific website names (LinkedIn, Indeed, etc.) in the Chrome Web Store listing description. Use generic terms like "all major job boards"
+- **No misleading descriptions** — extension must do exactly what the description says
+- **No remote code execution** — never fetch and execute external JavaScript
+- **No obfuscated code** — all code must be human-readable
+
+### Privacy
+- **Privacy policy required** — link to zurhaartools.com/privacy
+- **Disclose data handling** — what data is collected, sent, and stored
+- **Disclose AI processing** — if text is sent to an AI service for analysis, this must be in the privacy policy
+
+### Assets
 - **Icon requirements** — 128x128 PNG, 96x96 artwork with 16px transparent padding
 - **Screenshots** — 1280x800 or 640x400, JPEG or 24-bit PNG, no alpha
-- **Privacy policy required** — link to zurhaartools.com/privacy
+
+### Pre-submission checklist
+Before creating any zip for Chrome Web Store:
+1. Verify NO unnecessary permissions in manifest.json
+2. Verify NO `host_permissions` (use `optional_host_permissions` if needed)
+3. Verify NO `tabs` permission
+4. Verify NO remote code execution (eval, external scripts)
+5. Verify NO keyword spam in description
+6. Verify privacy policy is up to date and deployed
+7. Strip ALL console.log/debug logging
+8. Verify all code is readable and unobfuscated
 
 ## When building a new extension
 1. Create a new folder in this repo (e.g. `tos-scanner/`)
@@ -86,7 +117,7 @@ zip -r ../job-red-flag-detector.zip . -x ".*" "PRODUCT.md" "product-image.html"
 - Always use side panel, never popup
 - Always require manual user action to trigger scans (no auto-scanning)
 - Match the dark theme with orange-red accents
-- Use `host_permissions: <all_urls>` for universal site support
+- Use `optional_host_permissions: <all_urls>` + explicit `content_scripts.matches` for site support (NEVER `host_permissions`)
 - Store license key in `chrome.storage.local`
 - Show remaining credits in the header
 - Handle all error states gracefully (no-job, no-credits, API error)

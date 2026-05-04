@@ -148,12 +148,17 @@ async function extractJobText() {
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
 
   try {
-    const response = await chrome.tabs.sendMessage(tab.id, { action: 'extractJobText' });
+    // Race sendMessage against a timeout — if the content script isn't available
+    // (e.g. site access set to "On click"), sendMessage may hang indefinitely
+    const response = await Promise.race([
+      chrome.tabs.sendMessage(tab.id, { action: 'extractJobText' }),
+      new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 3000)),
+    ]);
     if (response && response.text && response.text.length > 100) {
       return response.text;
     }
   } catch (e) {
-    // Content script not available — use executeScript fallback
+    // Content script not available or timed out — use executeScript fallback
   }
 
   try {
