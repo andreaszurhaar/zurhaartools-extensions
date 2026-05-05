@@ -99,10 +99,17 @@ function renderFlag(flag, type) {
   const div = document.createElement('div');
   const className = type === 'red' ? `severity-${flag.severity}` : 'green';
   div.className = `flag-item ${className}`;
-  div.innerHTML = `
-    <div class="flag-text">"${flag.text}"</div>
-    <div class="flag-meaning">${flag.meaning}</div>
-  `;
+
+  const textDiv = document.createElement('div');
+  textDiv.className = 'flag-text';
+  textDiv.textContent = '"' + flag.text + '"';
+
+  const meaningDiv = document.createElement('div');
+  meaningDiv.className = 'flag-meaning';
+  meaningDiv.textContent = flag.meaning;
+
+  div.appendChild(textDiv);
+  div.appendChild(meaningDiv);
   return div;
 }
 
