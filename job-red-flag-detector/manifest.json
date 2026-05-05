@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "Job Red Flag Detector",
   "description": "Instantly spot warning signs in job postings — vague salary, unrealistic requirements, toxic culture signals.",
-  "version": "1.2.7",
+  "version": "1.2.8",
   "icons": {
     "16": "icons/icon16.png",
     "48": "icons/icon48.png",
@@ -78,8 +78,7 @@
         "*://*.naukri.com/*",
         "*://*.jobstreet.com/*"
       ],
-      "js": ["src/content.js"],
-      "css": ["src/content.css"]
+      "js": ["src/content.js"]
     }
   ]
 }

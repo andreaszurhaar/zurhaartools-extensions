@@ -165,191 +165,29 @@ async function extractJobText() {
       return response.text;
     }
   } catch (e) {
-    // Content script not available or timed out — use executeScript fallback
+    // Content script not available or timed out — inject and retry
   }
 
+  // Inject content.js as file and retry sendMessage
   try {
-    const results = await chrome.scripting.executeScript({
+    await chrome.scripting.executeScript({
       target: { tabId: tab.id, frameIds: [0] },
-      func: () => {
-        const noiseSelector = 'nav, header, footer, aside, [role="navigation"], [role="banner"], [role="contentinfo"]';
-        const markers = [
-          'About the job', 'About the role', 'About this role', 'About this position',
-          'Job description', 'Job Description', 'Job summary', 'Job Summary',
-          'Role Description', 'Position Description',
-          'Key Responsibilities', 'Responsibilities', 'What you\'ll do', 'What you will do',
-          'The Role', 'The Opportunity', 'Your Role',
-          'Over de functie', 'Functieomschrijving', 'Wat ga je doen', 'Jouw rol',
-          'Über die Stelle', 'Stellenbeschreibung', 'Ihre Aufgaben', 'Deine Aufgaben',
-        ];
-        const jobKeywords = [
-          'experience', 'requirements', 'qualifications', 'responsibilities',
-          'salary', 'benefits', 'skills', 'apply', 'position', 'candidate',
-          'team', 'company', 'opportunity', 'key responsibilities', 'what you',
-          'ervaring', 'functie', 'verantwoordelijkheden', 'salaris',
-          'erfahrung', 'anforderungen', 'qualifikationen', 'gehalt',
-        ];
-
-        // Tags whose text content is code/metadata, not visible text
-        const invisibleTags = new Set(['SCRIPT', 'STYLE', 'NOSCRIPT', 'TEMPLATE', 'SVG', 'IFRAME']);
-
-        // Shadow DOM helpers
-        function getDeepText(root) {
-          let text = '';
-          const walk = (node) => {
-            if (node.nodeType === Node.TEXT_NODE) {
-              const t = node.textContent.trim();
-              if (t) text += t + '\n';
-              return;
-            }
-            if (node.nodeType === Node.ELEMENT_NODE) {
-              if (invisibleTags.has(node.tagName)) return;
-              if (node.matches && node.matches(noiseSelector)) return;
-              if (node.shadowRoot) { walk(node.shadowRoot); return; }
-            }
-            const ch = node.childNodes;
-            for (let i = 0; i < ch.length; i++) walk(ch[i]);
-          };
-          walk(root);
-          return text;
-        }
-
-        function deepQuerySelectorAll(root, sel) {
-          const results = [];
-          const collect = (node) => {
-            if (node.querySelectorAll) {
-              const found = node.querySelectorAll(sel);
-              for (let i = 0; i < found.length; i++) results.push(found[i]);
-              const all = node.querySelectorAll('*');
-              for (let i = 0; i < all.length; i++) {
-                if (all[i].shadowRoot) collect(all[i].shadowRoot);
-              }
-            }
-          };
-          collect(root);
-          return results;
-        }
-
-        function deepFindTextNodes(root) {
-          const nodes = [];
-          const walk = (node) => {
-            if (node.nodeType === Node.TEXT_NODE) { nodes.push(node); return; }
-            if (node.nodeType === Node.ELEMENT_NODE) {
-              if (invisibleTags.has(node.tagName)) return;
-              if (node.shadowRoot) { walk(node.shadowRoot); return; }
-            }
-            const ch = node.childNodes;
-            for (let i = 0; i < ch.length; i++) walk(ch[i]);
-          };
-          walk(root);
-          return nodes;
-        }
-
-        function getElementDeepText(el) {
-          let hasShadow = !!el.shadowRoot;
-          if (!hasShadow) {
-            const all = el.querySelectorAll('*');
-            for (let i = 0; i < all.length; i++) {
-              if (all[i].shadowRoot) { hasShadow = true; break; }
-            }
-          }
-          return hasShadow ? getDeepText(el) : (el.innerText?.trim() || '');
-        }
-
-        function trimResult(text) {
-          const cleaned = text.replace(/\n{3,}/g, '\n\n').replace(/[ \t]+/g, ' ').trim();
-          return cleaned.length > 10000 ? cleaned.substring(0, 10000) : cleaned;
-        }
-
-        const deepText = getDeepText(document.body);
-
-        // Strategy 1: Selectors
-        const selectors = [
-          '#job-details', '#jobDescriptionText', '.jobDescriptionContent',
-          '[class*="jobs-description"]', '[class*="job-description"]',
-          '[class*="jobDescription"]', '[class*="JobDescription"]',
-          '[id*="job-description"]', '[id*="jobDescription"]',
-        ];
-        for (const sel of selectors) {
-          const els = deepQuerySelectorAll(document.body, sel);
-          for (const el of els) {
-            const text = getElementDeepText(el);
-            if (text.length > 100) return trimResult(text);
-          }
-        }
-
-        // Strategy 2: Markers via deep text nodes
-        const textNodes = deepFindTextNodes(document.body);
-        for (const tn of textNodes) {
-          const trimmed = tn.textContent.trim();
-          if (trimmed.length < 5 || trimmed.length > 50) continue;
-          const matched = markers.find(m => trimmed.toLowerCase() === m.toLowerCase());
-          if (!matched) continue;
-
-          let container = tn.parentElement;
-          for (let i = 0; i < 25; i++) {
-            if (!container || container === document.body) break;
-            if (container.nodeType === Node.DOCUMENT_FRAGMENT_NODE && container.host) {
-              container = container.host; continue;
-            }
-            if (container.matches && container.matches(noiseSelector)) {
-              container = container.parentNode; continue;
-            }
-            const text = getElementDeepText(container);
-            if (text.length > 500 && text.length < 30000) {
-              const lower = text.toLowerCase();
-              const signals = jobKeywords.filter(kw => lower.includes(kw)).length;
-              if (signals >= 2) return trimResult(text);
-            }
-            container = container.parentNode;
-          }
-
-          const idx = deepText.indexOf(matched);
-          if (idx !== -1) return trimResult(deepText.substring(idx, idx + 10000));
-          const idxL = deepText.toLowerCase().indexOf(matched.toLowerCase());
-          if (idxL !== -1) return trimResult(deepText.substring(idxL, idxL + 10000));
-        }
-
-        // Deep text marker fallback
-        for (const marker of markers) {
-          const idx = deepText.indexOf(marker);
-          if (idx !== -1) return trimResult(deepText.substring(idx, idx + 10000));
-        }
-
-        // Strategy 3: Keyword scoring
-        const candidates = deepQuerySelectorAll(document.body, 'div, section, article, main, [role="main"]');
-        let best = '', bestScore = 0;
-        for (const el of candidates) {
-          if (el.closest && el.closest(noiseSelector)) continue;
-          const text = getElementDeepText(el);
-          if (text.length < 300) continue;
-          const lower = text.toLowerCase();
-          const score = jobKeywords.filter(kw => lower.includes(kw)).length * (text.length > 15000 ? 0.7 : 1);
-          if (score > bestScore) { bestScore = score; best = text; }
-        }
-        if (bestScore >= 3 && best.length >= 300) {
-          if (best.length > 10000) {
-            for (const m of markers) { const i = best.indexOf(m); if (i !== -1) return trimResult(best.substring(i, i + 10000)); }
-          }
-          return trimResult(best);
-        }
-
-        // Strategy 4: Fallback
-        const mains = deepQuerySelectorAll(document.body, 'main, [role="main"], article');
-        for (const m of mains) {
-          const text = getElementDeepText(m);
-          if (text.length > 300) return trimResult(text);
-        }
-        if (deepText.length > 300) return trimResult(deepText);
-
-        return null;
-      },
+      files: ['src/content.js'],
     });
+    await new Promise(r => setTimeout(r, 200));
 
-    return results[0]?.result || null;
+    const response = await Promise.race([
+      chrome.tabs.sendMessage(tab.id, { action: 'extractJobText' }),
+      new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 3000)),
+    ]);
+    if (response && response.text && response.text.length > 100) {
+      return response.text;
+    }
   } catch (e) {
-    return null;
+    // Injection failed or content script still not responding
   }
+
+  return null;
 }
 
 // ── Core scan function ──

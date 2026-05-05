@@ -410,3 +410,22 @@ header h1 {
   font-weight: 600;
   margin-bottom: 8px;
 }
+
+/* Footer */
+.footer {
+  text-align: center;
+  padding: 16px 0 8px;
+  margin-top: 24px;
+  border-top: 1px solid #1e1e2e;
+}
+
+.footer a {
+  font-size: 11px;
+  color: #64748b;
+  text-decoration: none;
+  transition: color 0.2s;
+}
+
+.footer a:hover {
+  color: #94a3b8;
+}
