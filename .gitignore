@@ -3,6 +3,7 @@
 
 # Build artifacts
 *.zip
+dist/
 
 # IDE
 .idea/

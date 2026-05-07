@@ -17,20 +17,30 @@ You are the **Extensions Agent** for Zurhaar Tools. You build and maintain Chrom
 
 ## Project structure
 ```
+shared/                          ← Common code shared across all extensions
+├── license.js                   ← License key get/save/clear helpers
+├── ui.js                        ← State management, credits display, error helpers
+├── api.js                       ← performScan() with credit/license error handling
+├── activation.js                ← License activation flow + init, event listeners
+└── background.js                ← Service worker (opens side panel on click)
+
+scripts/
+└── build.sh                     ← Build script: resolves symlinks, zips to dist/
+
 job-red-flag-detector/           ← Each extension gets its own folder
 ├── manifest.json                ← Chrome Manifest V3 config
+├── shared -> ../shared          ← Symlink (build.sh replaces with real files for zip)
 ├── icons/
 │   ├── icon16.png
 │   ├── icon48.png
 │   └── icon128.png              ← 96x96 artwork + 16px padding (Chrome Web Store requirement)
 └── src/
-    ├── background.js            ← Service worker (opens side panel on click)
     ├── config.js                ← API_URL and PRICING_URL constants
     ├── content.js               ← Content script: extracts text from web pages
     ├── content.css              ← Reserved for future page highlighting
-    ├── sidepanel.html           ← UI structure with 7 states
+    ├── sidepanel.html           ← UI structure with 7 states (loads shared/ scripts)
     ├── sidepanel.css            ← Dark theme styling
-    └── sidepanel.js             ← Main logic: license, scanning, results
+    └── sidepanel.js             ← Extension-specific logic: scan, render results
 ```
 
 ## Extension architecture pattern
@@ -60,9 +70,8 @@ const CONFIG = {
 
 ## Deploy
 ```bash
-cd job-red-flag-detector
-zip -r ../job-red-flag-detector.zip . -x ".*" "PRODUCT.md" "product-image.html"
-# Upload zip to Chrome Web Store Developer Dashboard
+./scripts/build.sh job-red-flag-detector   # or: ./scripts/build.sh all
+# Upload dist/job-red-flag-detector.zip to Chrome Web Store Developer Dashboard
 ```
 
 ## Chrome Web Store policy compliance (MANDATORY)
@@ -105,13 +114,17 @@ Before creating any zip for Chrome Web Store:
 
 ## When building a new extension
 1. Create a new folder in this repo (e.g. `tos-scanner/`)
-2. Copy the pattern from `job-red-flag-detector/` as a starting point
-3. Adapt: manifest.json, content.js extraction logic, sidepanel UI, prompts
-4. Update `config.js` with the correct `PRICING_URL` for the new product
-5. Test locally via chrome://extensions → Load unpacked
-6. Create product images (1280x800 for screenshots, 440x280 small promo, 1400x560 marquee)
-7. Submit to Chrome Web Store
-8. Coordinate with Backend agent for new scan type + Stripe products
+2. Create a symlink: `ln -s ../shared tos-scanner/shared`
+3. Copy `manifest.json`, `src/config.js`, `src/sidepanel.html`, `src/sidepanel.css`, `src/sidepanel.js` from `job-red-flag-detector/` as a starting point
+4. Set `manifest.json` background to `"service_worker": "shared/background.js"`
+5. Keep shared script tags in `sidepanel.html` (license.js, ui.js, api.js, activation.js)
+6. Adapt: manifest.json metadata, content.js extraction logic, sidepanel.js (scan type, rendering), sidepanel.html (product-specific copy)
+7. Update `config.js` with the correct `PRICING_URL` for the new product
+8. Test locally via chrome://extensions → Load unpacked
+9. Build with `./scripts/build.sh tos-scanner`
+10. Create product images (1280x800 for screenshots, 440x280 small promo, 1400x560 marquee)
+11. Submit to Chrome Web Store
+12. Coordinate with Backend agent for new scan type + Stripe products
 
 ## Rules
 - Always use side panel, never popup
