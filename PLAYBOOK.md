@@ -122,14 +122,48 @@ Run this checklist before every submission. Load unpacked from `chrome://extensi
 
 ---
 
-## 4. Test (Automated — future)
+## 4. Test (Automated)
 
-Not yet implemented. Planned approach:
+Playwright E2E tests are live. Run by the **tester agent** (see `TESTER.md` for full details).
 
-- Playwright E2E tests with Chrome extension loading
-- Per-extension test specs in a `tests/` directory
-- CI runs on every `shared/` change to catch regressions across all extensions
-- Will be set up alongside the next extension launch
+```bash
+# All tests (smoke skipped without key)
+npm test
+
+# All tests including smoke
+TEST_LICENSE_KEY="TEST-0000-0000-0000-000000000000" npm test
+
+# One extension only
+npx playwright test job-red-flag-detector
+```
+
+### Three test layers
+
+| Layer | File | What it tests | Backend needed? |
+|---|---|---|---|
+| 1 — Shared | `shared.spec.js` | License, UI states, links | No (mocked) |
+| 2 — Extension | `extraction.spec.js` | Content extraction, results rendering | No (mocked) |
+| 3 — Smoke | `smoke.spec.js` | Full end-to-end with real API | Yes (1 credit) |
+
+### When to run
+
+- **shared/ changed** → all tests for ALL extensions
+- **Extension code changed** → all tests for that extension
+- **Before store submission** → all tests including smoke
+
+### Adding tests for a new extension
+
+1. Create `new-extension/tests/test-utils.js` — copy from job-red-flag-detector, update extension path
+2. Create `new-extension/tests/shared.spec.js` — copy from job-red-flag-detector (shared tests are identical)
+3. Create `new-extension/tests/extraction.spec.js` — write product-specific extraction + rendering tests
+4. Create `new-extension/tests/smoke.spec.js` — copy from job-red-flag-detector, update scan type
+5. Create product-specific test fixtures in `scripts/test-fixtures/` if needed
+
+### Test fixtures
+
+Located in `scripts/test-fixtures/`. Served via local HTTP server during tests.
+- `linkedin-job.html`, `indeed-job.html`, `generic-job.html`, `no-job-content.html`
+- Add product-specific fixtures as needed (e.g. `tos-page.html` for ToS Scanner)
 
 ---
 
