@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" href="sidepanel.css">
+  <title>ToS Scanner</title>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <div class="header-row">
+        <div>
+          <h1>ToS Scanner</h1>
+          <p class="subtitle">by <a href="https://zurhaartools.com" target="_blank">Zurhaar Tools</a></p>
+        </div>
+        <span id="credits-display" class="credits-display hidden"></span>
+      </div>
+    </header>
+
+    <!-- Welcome state (no license key) -->
+    <div id="state-welcome" class="state">
+      <h2 class="welcome-heading">Understand any Terms of Service instantly</h2>
+      <ul class="welcome-features">
+        <li>Scans Terms of Service and Privacy Policies</li>
+        <li>Spots hidden clauses and unfair terms</li>
+        <li>Flags data sharing and tracking practices</li>
+        <li>Score out of 10 with detailed breakdown</li>
+        <li>Works on any website</li>
+      </ul>
+      <a id="get-started-btn" href="#" target="_blank" class="btn-primary" style="margin-bottom: 20px;">
+        Get Started — from €4.99
+      </a>
+      <div class="license-section">
+        <p class="license-label">Already have a license key?</p>
+        <div class="license-input-row">
+          <input type="text" id="license-input" class="license-input" placeholder="Paste your license key" />
+          <button id="activate-btn" class="btn-activate">Activate</button>
+        </div>
+        <p id="license-error" class="license-error hidden"></p>
+        <a href="https://zurhaartools.com/recover" target="_blank" class="recover-link">Lost your license key?</a>
+      </div>
+    </div>
+
+    <!-- Initial state (has key, ready to scan) -->
+    <div id="state-initial" class="state hidden">
+      <p class="description">Navigate to a Terms of Service or Privacy Policy page, then click the button below to scan it.</p>
+      <button id="scan-btn" class="btn-primary">
+        <span class="btn-icon">&#128269;</span>
+        Scan This Page
+      </button>
+      <p class="hint">Works on any website with legal text.</p>
+    </div>
+
+    <!-- Loading state -->
+    <div id="state-loading" class="state hidden">
+      <div class="loader"></div>
+      <p>Analyzing legal document...</p>
+    </div>
+
+    <!-- Results state -->
+    <div id="state-results" class="state hidden">
+      <div id="score-container" class="score-container">
+        <div id="score-badge" class="score-badge"></div>
+        <p id="score-summary" class="score-summary"></p>
+      </div>
+
+      <div id="red-flags-section" class="section">
+        <h2 class="section-title red">&#9888; Red Flags</h2>
+        <div id="red-flags-list" class="flags-list"></div>
+      </div>
+
+      <div id="green-flags-section" class="section">
+        <h2 class="section-title green">&#10003; Green Flags</h2>
+        <div id="green-flags-list" class="flags-list"></div>
+      </div>
+
+      <button id="rescan-btn" class="btn-secondary">Scan Again</button>
+    </div>
+
+    <!-- No credits state -->
+    <div id="state-no-credits" class="state hidden">
+      <p class="error-icon">&#128176;</p>
+      <p class="no-credits-heading">You've used all your scans</p>
+      <p class="no-credits-text">Purchase more scan credits to continue analyzing legal documents.</p>
+      <a id="buy-more-btn" href="#" target="_blank" class="btn-primary" style="margin-bottom: 12px;">
+        Buy More Scans
+      </a>
+      <button id="change-key-btn" class="btn-link">Use a different license key</button>
+    </div>
+
+    <!-- Error state -->
+    <div id="state-error" class="state hidden">
+      <p class="error-icon">&#9888;</p>
+      <p id="error-message" class="error-message">Something went wrong.</p>
+      <button id="retry-btn" class="btn-secondary">Try Again</button>
+    </div>
+
+    <!-- No legal content found -->
+    <div id="state-no-legal" class="state hidden">
+      <p class="error-icon">&#128196;</p>
+      <p class="error-message">No legal text found</p>
+      <p class="no-job-description">This page doesn't appear to contain Terms of Service or a Privacy Policy. Navigate to a legal page and try again.</p>
+      <div class="no-job-actions">
+        <button id="retry-scan-btn" class="btn-secondary">Try Again</button>
+      </div>
+    </div>
+  </div>
+
+  <footer class="footer">
+    <a href="https://zurhaartools.com/privacy" target="_blank">Privacy Policy</a>
+  </footer>
+
+  <script src="config.js"></script>
+  <script src="../shared/license.js"></script>
+  <script src="../shared/ui.js"></script>
+  <script src="../shared/api.js"></script>
+  <script src="../shared/activation.js"></script>
+  <script src="sidepanel.js"></script>
+</body>
+</html>

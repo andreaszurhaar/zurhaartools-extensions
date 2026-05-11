@@ -5,10 +5,10 @@ const path = require('path');
 const { launchExtension, openSidePanel, seedLicenseKey, mockCreditsAPI } = require('./test-utils');
 
 const FIXTURES_DIR = path.resolve(__dirname, '..', '..', 'scripts', 'test-fixtures');
-const TEST_LICENSE_KEY = process.env.TEST_LICENSE_KEY_JRF || process.env.TEST_LICENSE_KEY;
+const TEST_LICENSE_KEY = process.env.TEST_LICENSE_KEY_TOS;
 
 // Skip all smoke tests if no license key is provided
-test.skip(!TEST_LICENSE_KEY, 'TEST_LICENSE_KEY_JRF environment variable not set');
+test.skip(!TEST_LICENSE_KEY, 'TEST_LICENSE_KEY_TOS environment variable not set');
 
 let context;
 let extensionId;
@@ -43,9 +43,9 @@ test.afterAll(async () => {
 });
 
 test('end-to-end scan with real API', async () => {
-  // Open a fixture page in the first tab
+  // Open a fixture page with legal content
   const fixturePage = await context.newPage();
-  await fixturePage.goto(`http://localhost:${fixturePort}/generic-job.html`);
+  await fixturePage.goto(`http://localhost:${fixturePort}/tos-page.html`);
   await fixturePage.waitForLoadState('domcontentloaded');
 
   // Stub chrome.runtime so content.js doesn't throw on a regular page
@@ -66,7 +66,7 @@ test('end-to-end scan with real API', async () => {
   // Seed the test license key
   await seedLicenseKey(panel, TEST_LICENSE_KEY);
 
-  // Mock only the credits check (so init shows the scan button), but let /api/scan go to the real API
+  // Mock only the credits check, let /api/scan go to the real API
   await panel.route('**/api/credits**', route => {
     route.fulfill({
       status: 200,
@@ -78,41 +78,29 @@ test('end-to-end scan with real API', async () => {
   await panel.reload();
   await panel.waitForLoadState('domcontentloaded');
 
-  // Should show initial state
   await expect(panel.locator('#state-initial')).toBeVisible({ timeout: 5000 });
 
-  // The side panel's extractJobText() sends a message to the active tab.
-  // Since our fixture tab is separate and doesn't have the content script
-  // injected via the extension's message listener, we need to test the
-  // full flow differently. Instead, we call scanJob() after directly
-  // providing the text via the API mock.
-  //
-  // For a true E2E test, we'd need the fixture page to be the active tab
-  // and have the content script injected via manifest matches or executeScript.
-  // Since localhost isn't in the manifest matches, we test by calling the
-  // scan with the text pre-extracted.
-
   // Extract text from the fixture page
-  const jobText = await fixturePage.evaluate(() => {
-    return typeof extractJobText === 'function' ? extractJobText() : null;
+  const legalText = await fixturePage.evaluate(() => {
+    return typeof extractLegalText === 'function' ? extractLegalText() : null;
   });
 
-  expect(jobText).not.toBeNull();
-  expect(jobText.length).toBeGreaterThan(100);
+  expect(legalText).not.toBeNull();
+  expect(legalText.length).toBeGreaterThan(100);
 
-  // Now perform a real API scan from the extension page
+  // Perform a real API scan
   const scanResult = await panel.evaluate(async ({ text, licenseKey }) => {
     const response = await fetch(`${CONFIG.API_URL}/api/scan`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        type: 'job-red-flags',
+        type: 'tos-scan',
         text: text,
         license_key: licenseKey,
       }),
     });
     return response.json();
-  }, { text: jobText, licenseKey: TEST_LICENSE_KEY });
+  }, { text: legalText, licenseKey: TEST_LICENSE_KEY });
 
   // Verify we got a valid scan result
   expect(scanResult).toHaveProperty('score');
@@ -137,4 +125,4 @@ test('end-to-end scan with real API', async () => {
 
   await fixturePage.close();
   await panel.close();
-}, 30000); // Allow extra time for real API call
+}, 30000);
