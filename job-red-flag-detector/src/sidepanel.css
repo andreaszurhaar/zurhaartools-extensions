@@ -340,6 +340,19 @@ header h1 {
   text-align: left;
 }
 
+.recover-link {
+  font-size: 11px;
+  color: #64748b;
+  text-decoration: none;
+  margin-top: 10px;
+  display: inline-block;
+}
+
+.recover-link:hover {
+  color: #94a3b8;
+  text-decoration: underline;
+}
+
 /* No credits */
 .no-credits-heading {
   font-size: 16px;
