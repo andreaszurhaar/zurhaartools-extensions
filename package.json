@@ -1,0 +1,21 @@
+{
+  "name": "zurhaartools-extensions",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "npx playwright test",
+    "test:smoke": "TEST_LICENSE_KEY=$TEST_LICENSE_KEY npx playwright test smoke"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git@github-personal:andreaszurhaar/zurhaartools-extensions.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "devDependencies": {
+    "@playwright/test": "^1.59.1"
+  }
+}

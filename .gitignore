@@ -13,5 +13,11 @@ dist/
 # Chrome extension dev
 key.pem
 
+# Node
+node_modules/
+
+# Playwright
+test-results/
+
 # Wrangler
 .wrangler/
