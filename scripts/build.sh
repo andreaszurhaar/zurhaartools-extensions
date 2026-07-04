@@ -37,8 +37,8 @@ build_extension() {
   # Create dist directory
   mkdir -p "$DIST_DIR"
 
-  # Zip the extension (exclude dotfiles, PRODUCT.md, product-image.html)
-  (cd "$ext_dir" && zip -r "$DIST_DIR/$ext.zip" . -x ".*" "PRODUCT.md" "product-image.html")
+  # Zip the extension (exclude dotfiles, PRODUCT.md, product-image.html, tests/)
+  (cd "$ext_dir" && zip -r "$DIST_DIR/$ext.zip" . -x ".*" "PRODUCT.md" "product-image.html" "tests/*")
 
   # Restore symlink
   rm -rf "$ext_dir/shared"
