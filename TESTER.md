@@ -17,8 +17,10 @@ You are the **Tester Agent** for Zurhaar Tools. You run automated E2E tests on C
 # Run all tests (smoke tests skipped without license key)
 npm test
 
-# Run all tests including smoke tests
-TEST_LICENSE_KEY="TEST-0000-0000-0000-000000000000" npm test
+# Run all tests including smoke tests (each extension reads its own env var)
+TEST_LICENSE_KEY_JRF="TEST-0000-0000-0000-000000000000" \
+TEST_LICENSE_KEY_TOS="TEST-0000-0000-0000-000000000001" \
+npm test
 
 # Run tests for a specific extension
 npx playwright test job-red-flag-detector
@@ -29,6 +31,10 @@ npx playwright test --grep "smoke"
 # Run only shared tests
 npx playwright test --grep -v "smoke"
 ```
+
+**Env var naming:** each extension's `smoke.spec.js` reads a product-specific env var so a smoke run for one product doesn't accidentally consume credits on another:
+- JRF: `TEST_LICENSE_KEY_JRF` (falls back to `TEST_LICENSE_KEY` for back-compat)
+- ToS Scanner: `TEST_LICENSE_KEY_TOS`
 
 ## Test layers
 
@@ -50,7 +56,7 @@ One real end-to-end test per extension:
 - Opens a fixture page, triggers a real scan via the live backend
 - Verifies real results render correctly
 - Consumes 1 credit per run
-- Requires `TEST_LICENSE_KEY` env var
+- Requires the extension's product-specific env var (`TEST_LICENSE_KEY_JRF`, `TEST_LICENSE_KEY_TOS`, etc.)
 
 ## When to run
 
