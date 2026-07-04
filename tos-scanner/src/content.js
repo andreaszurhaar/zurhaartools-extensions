@@ -16,8 +16,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   // Sub-frames must not respond
   if (window.self !== window.top) return false;
 
-  const text = extractLegalText();
-  sendResponse({ text });
+  extractLegalText().then(text => sendResponse({ text }));
   return true;
 });
 
@@ -48,7 +47,7 @@ const INVISIBLE_TAGS = new Set(['SCRIPT', 'STYLE', 'NOSCRIPT', 'TEMPLATE', 'SVG'
 
 // ── Main extraction ──
 
-function extractLegalText() {
+function extractLegalTextSync() {
   // Strategy 1: Page title / heading match
   const titleResult = tryTitleMatch();
   if (titleResult) return cleanText(titleResult);
@@ -67,6 +66,43 @@ function extractLegalText() {
 
   return null;
 }
+
+const SPA_MIN_LENGTH = 500;
+
+async function extractLegalText() {
+  const first = extractLegalTextSync();
+  if (first && first.length >= SPA_MIN_LENGTH) return first;
+
+  // SPA/dynamic pages may not have rendered yet — watch for DOM changes
+  return new Promise(resolve => {
+    let best = first;
+    let settled = false;
+
+    const done = () => {
+      if (settled) return;
+      settled = true;
+      observer.disconnect();
+      clearTimeout(timer);
+      resolve(best);
+    };
+
+    const observer = new MutationObserver(() => {
+      const result = extractLegalTextSync();
+      if (!result) return;
+      if (!best || result.length > best.length) best = result;
+      if (best.length >= SPA_MIN_LENGTH) done();
+    });
+
+    observer.observe(document.body, {
+      childList: true,
+      subtree: true,
+      characterData: true,
+    });
+
+    const timer = setTimeout(done, 5000);
+  });
+}
+window.extractLegalText = extractLegalText;
 
 // ── Strategy 1: Title / heading match ──
 function tryTitleMatch() {

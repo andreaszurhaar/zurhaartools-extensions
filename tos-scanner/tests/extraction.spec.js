@@ -3,7 +3,7 @@ const http = require('http');
 const fs = require('fs');
 const path = require('path');
 const {
-  launchExtension, openSidePanel, seedLicenseKey,
+  launchExtension, openSidePanel, seedLicenseKey, clearLicenseKey,
   mockCreditsAPI, mockScanAPI,
 } = require('./test-utils');
 
@@ -197,6 +197,62 @@ test.describe('Results rendering', () => {
 
     await expect(page.locator('#score-badge')).toHaveClass(/score-good/);
     await expect(page.locator('#score-badge')).toHaveText('9/10');
+
+    await page.close();
+  });
+});
+
+test.describe('Stale state on tab change', () => {
+  test('switches to stale state when handleTabChanged fires from initial state', async () => {
+    const page = await openSidePanel(context, extensionId);
+    await mockCreditsAPI(page, 50);
+    await seedLicenseKey(page, 'test-key');
+    await page.reload();
+    await page.waitForLoadState('domcontentloaded');
+    await expect(page.locator('#state-initial')).toBeVisible({ timeout: 5000 });
+
+    // Simulate the tab-change handler firing (mirrors what onActivated/onUpdated would trigger)
+    await page.evaluate(() => handleTabChanged());
+
+    await expect(page.locator('#state-stale')).toBeVisible();
+    await expect(page.locator('#state-initial')).toBeHidden();
+    await expect(page.locator('#state-stale .stale-heading')).toHaveText('Page changed');
+
+    await page.close();
+  });
+
+  test('switches to stale state when handleTabChanged fires from results state', async () => {
+    const page = await openSidePanel(context, extensionId);
+    await mockCreditsAPI(page, 50);
+    await seedLicenseKey(page, 'test-key');
+    await page.reload();
+    await page.waitForLoadState('domcontentloaded');
+    await expect(page.locator('#state-initial')).toBeVisible({ timeout: 5000 });
+
+    await page.evaluate(() => {
+      renderResults({ score: 7, summary: 'Fair terms.', redFlags: [], greenFlags: [], credits_remaining: 49 });
+    });
+    await expect(page.locator('#state-results')).toBeVisible();
+
+    await page.evaluate(() => handleTabChanged());
+
+    await expect(page.locator('#state-stale')).toBeVisible();
+    await expect(page.locator('#state-results')).toBeHidden();
+
+    await page.close();
+  });
+
+  test('does not switch to stale from welcome state', async () => {
+    const page = await openSidePanel(context, extensionId);
+    await clearLicenseKey(page);
+    await page.reload();
+    await page.waitForLoadState('domcontentloaded');
+    await expect(page.locator('#state-welcome')).toBeVisible();
+
+    await page.evaluate(() => handleTabChanged());
+
+    await expect(page.locator('#state-welcome')).toBeVisible();
+    await expect(page.locator('#state-stale')).toBeHidden();
 
     await page.close();
   });

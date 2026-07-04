@@ -12,6 +12,7 @@ async function launchExtension() {
 
   const context = await chromium.launchPersistentContext(userDataDir, {
     headless: false,
+    bypassCSP: true,
     args: [
       `--disable-extensions-except=${EXTENSION_PATH}`,
       `--load-extension=${EXTENSION_PATH}`,

@@ -44,12 +44,27 @@
 
     <!-- Initial state (has key, ready to scan) -->
     <div id="state-initial" class="state hidden">
-      <p class="description">Navigate to a Terms of Service or Privacy Policy page, then click the button below to scan it.</p>
+      <p class="description">To scan: open a Terms of Service or Privacy Policy page, then click the <strong>Z</strong> icon in your browser toolbar (top-right, in the extensions area). The scan happens with one click &mdash; no permissions needed beyond the page you're already on.</p>
       <button id="scan-btn" class="btn-primary">
         <span class="btn-icon">&#128269;</span>
         Scan This Page
       </button>
       <p class="hint">Works on any website with legal text.</p>
+    </div>
+
+    <!-- Stale state (tab changed/navigated since panel was opened) -->
+    <div id="state-stale" class="state hidden">
+      <p class="error-icon">&#8599;</p>
+      <p class="stale-heading">Page changed</p>
+      <p class="stale-text">To scan this page, click the <strong>Z</strong> icon in your browser toolbar (top-right, in the extensions area — you may need to open the puzzle-piece menu).</p>
+    </div>
+
+    <!-- Permission-needed state (executeScript failed on permission) -->
+    <div id="state-permission-needed" class="state hidden">
+      <p class="error-icon">&#8599;</p>
+      <p class="stale-heading">Click the extension icon to scan</p>
+      <p class="stale-text">This panel needs to be opened while you're on the page you want to scan. Click the <strong>Z</strong> icon in your toolbar (top-right, in the extensions area or puzzle-piece menu) to refresh access, then come back and scan.</p>
+      <button id="retry-permission-btn" class="btn-secondary">Try Again</button>
     </div>
 
     <!-- Loading state -->
