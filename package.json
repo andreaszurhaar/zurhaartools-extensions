@@ -5,7 +5,7 @@
   "main": "index.js",
   "scripts": {
     "test": "npx playwright test",
-    "test:smoke": "TEST_LICENSE_KEY=$TEST_LICENSE_KEY npx playwright test smoke"
+    "test:smoke": "TEST_LICENSE_KEY_JRF=$TEST_LICENSE_KEY_JRF TEST_LICENSE_KEY_TOS=$TEST_LICENSE_KEY_TOS npx playwright test smoke"
   },
   "repository": {
     "type": "git",
