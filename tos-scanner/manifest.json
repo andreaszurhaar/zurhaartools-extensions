@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "ToS Scanner",
   "description": "Instantly understand Terms of Service and Privacy Policies — spot hidden clauses, data sharing, and unfair terms.",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "icons": {
     "16": "icons/icon16.png",
     "48": "icons/icon48.png",
